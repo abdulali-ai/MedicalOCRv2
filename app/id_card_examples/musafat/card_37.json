@@ -1,0 +1,10 @@
+{
+  "card_number": "ACA-2501-02959-P03",
+  "employee_name": "حسام عامر جمعة عطية",
+  "beneficiary_name": "عامر جمعة علي عطية",
+  "date_of_birth": "1957-06-01",
+  "validity_period": {
+    "start_date": "2025-02-17",
+    "end_date": "2026-02-16"
+  }
+}

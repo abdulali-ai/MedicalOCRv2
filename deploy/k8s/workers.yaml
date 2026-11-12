@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdf-worker
+  namespace: ocr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pdf-worker
+  template:
+    metadata:
+      labels:
+        app: pdf-worker
+    spec:
+      containers:
+        - name: pdf-worker
+          image: ocr-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.services.pdf_worker"]
+          envFrom:
+            - configMapRef:
+                name: ocr-config
+          volumeMounts:
+            - name: storage
+              mountPath: /data
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: ocr-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vision-worker
+  namespace: ocr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vision-worker
+  template:
+    metadata:
+      labels:
+        app: vision-worker
+    spec:
+      containers:
+        - name: vision-worker
+          image: ocr-vision:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.services.vision_worker"]
+          envFrom:
+            - configMapRef:
+                name: ocr-config
+          volumeMounts:
+            - name: storage
+              mountPath: /data
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: ocr-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: extract-dispatcher
+  namespace: ocr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: extract-dispatcher
+  template:
+    metadata:
+      labels:
+        app: extract-dispatcher
+    spec:
+      containers:
+        - name: extract-dispatcher
+          image: ocr-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.services.extract_worker"]
+          envFrom:
+            - configMapRef:
+                name: ocr-config
+          volumeMounts:
+            - name: storage
+              mountPath: /data
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: ocr-storage
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup
+  namespace: ocr
+spec:
+  schedule: "17 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: cleanup
+              image: ocr-api:local
+              imagePullPolicy: IfNotPresent
+              command: ["python", "-m", "app.services.cleanup"]
+              envFrom:
+                - configMapRef:
+                    name: ocr-config
+              volumeMounts:
+                - name: storage
+                  mountPath: /data
+          volumes:
+            - name: storage
+              persistentVolumeClaim:
+                claimName: ocr-storage

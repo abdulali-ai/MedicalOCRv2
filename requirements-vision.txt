@@ -1,0 +1,6 @@
+pydantic-settings
+redis
+pillow
+numpy
+opencv-python-headless
+ultralytics

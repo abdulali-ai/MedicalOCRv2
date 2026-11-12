@@ -1,0 +1,121 @@
+{
+  "classify": {
+    "document_type": [
+      "inpatient_invoice",
+      "outpatient_invoice",
+      "other_document"
+    ]
+  },
+  "invoice": {
+    "hospital_name": "verbatim-string",
+    "document_title": "verbatim-string",
+    "print_date": "verbatim-string",
+    "patient": {
+      "name": "verbatim-string",
+      "admission_no": "verbatim-string",
+      "medical_no": "verbatim-string",
+      "status": "verbatim-string"
+    },
+    "payer": "verbatim-string",
+    "agreement": "verbatim-string",
+    "doctor": "verbatim-string",
+    "specialty": "verbatim-string",
+    "room": {
+      "number": "verbatim-string",
+      "type": "verbatim-string"
+    },
+    "stay": {
+      "from_date": "verbatim-string",
+      "from_time": "verbatim-string",
+      "to_date": "verbatim-string",
+      "to_time": "verbatim-string"
+    },
+    "sections": [
+      {
+        "section_name": "verbatim-string",
+        "items": [
+          {
+            "code": "verbatim-string",
+            "description": "verbatim-string",
+            "quantity": 0,
+            "date": "verbatim-string",
+            "time": "verbatim-string",
+            "net_price": 0.0,
+            "patient_share": 0.0,
+            "payer_share": 0.0
+          }
+        ],
+        "section_total": {
+          "net_price": 0.0,
+          "patient_share": 0.0,
+          "payer_share": 0.0
+        }
+      }
+    ],
+    "summary": {
+      "total": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+      "medical_service": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+      "discount": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+      "vat": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+      "stamp_duty": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+      "net": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0}
+    },
+    "run_date": "verbatim-string",
+    "user": "verbatim-string"
+  },
+  "outpatient_invoice": {
+    "hospital_name": "verbatim-string",
+    "document_title": "verbatim-string",
+    "patient": {
+      "file_number": "verbatim-string",
+      "name": "verbatim-string",
+      "company": "verbatim-string",
+      "organization": "verbatim-string",
+      "employee_number": "verbatim-string",
+      "relationship": null
+    },
+    "stay": {
+      "admission_date": null,
+      "discharge_date": null
+    },
+    "receipt": {
+      "receipt_number": "verbatim-string",
+      "receipt_date": "verbatim-string"
+    },
+    "sections": [
+      {
+        "section_name": "verbatim-string",
+        "items": [
+          {
+            "code": "verbatim-string",
+            "description": "verbatim-string",
+            "english_description": null,
+            "date": "verbatim-string",
+            "time": "verbatim-string",
+            "quantity": 0,
+            "unit_price": 0.0,
+            "net_price": 0.0
+          }
+        ],
+        "section_total": {
+          "net_price": 0.0
+        }
+      }
+    ],
+    "summary": {
+      "total": 0.0,
+      "paid": 0.0,
+      "remaining": 0.0
+    }
+  },
+  "id_card": {
+    "card_number": "verbatim-string",
+    "employee_name": "verbatim-string",
+    "beneficiary_name": "verbatim-string",
+    "date_of_birth": "verbatim-string",
+    "validity_period": {
+      "start_date": "verbatim-string",
+      "end_date": "verbatim-string"
+    }
+  }
+}

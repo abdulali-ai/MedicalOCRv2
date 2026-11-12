@@ -1,0 +1,12 @@
+[
+  {
+    "file": "inpatient_invoice.jpg",
+    "output": "inpatient_invoice.json",
+    "source": "tests/Janzour Clinic/Claim 5/img10152025_0009.jpg"
+  },
+  {
+    "file": "outpatient_invoice.jpg",
+    "output": "outpatient_invoice.json",
+    "source": "tests/safwa/4_page_1 (1).jpg"
+  }
+]

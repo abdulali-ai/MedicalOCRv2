@@ -1,0 +1,45 @@
+{
+  "hospital_name": "مستشفى الصفوة الدولي",
+  "document_title": "إيصال رقم: RG2500172187",
+  "patient": {
+    "file_number": "U2111007156",
+    "name": "ملاك ابوبكر الصديق الزواوي",
+    "company": "شركة ميثاق للتأمين (ACA)",
+    "organization": "هيئة الرقابة الإدارية",
+    "employee_number": "ACA-2501-03370-S02",
+    "relationship": null
+  },
+  "stay": {
+    "admission_date": null,
+    "discharge_date": null
+  },
+  "receipt": {
+    "receipt_number": "RG2500172187",
+    "receipt_date": "18/07/2025 18:15"
+  },
+  "sections": [
+    {
+      "section_name": "خدمات طبية",
+      "items": [
+        {
+          "code": "ER00000009",
+          "description": "حقنة بالعضل بدون دواء (عدد 1) بالمستلزمات",
+          "english_description": null,
+          "date": "18/07/2025",
+          "time": "18:15",
+          "quantity": 1,
+          "unit_price": 0.6,
+          "net_price": 0.6
+        }
+      ],
+      "section_total": {
+        "net_price": 0.6
+      }
+    }
+  ],
+  "summary": {
+    "total": 0.6,
+    "paid": 0.0,
+    "remaining": 0.6
+  }
+}

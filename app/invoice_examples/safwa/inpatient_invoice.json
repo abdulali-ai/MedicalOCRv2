@@ -1,0 +1,327 @@
+{
+  "hospital_name": "INTERNATIONAL HOSPITAL / المستشفى الدولي",
+  "document_title": "كشف تفاصيل الخدمات",
+  "print_date": "4/17/25 2:26PM",
+  "patient": {
+    "name": "النشاط على عمر شعبان",
+    "admission_no": "EP250012453",
+    "medical_no": "U2500012887",
+    "status": "حالة مستشفى"
+  },
+  "payer": "شركة ميثاق للتأمين",
+  "agreement": "هيئة الرقابة الإدارية",
+  "doctor": "Marwa Frandah / مروة فرندح",
+  "specialty": "إسعاف باطنة",
+  "room": {
+    "number": "415-2",
+    "type": "غرفة زوجية"
+  },
+  "stay": {
+    "from_date": "08/04/2025",
+    "from_time": "11:16",
+    "to_date": "11/04/2025",
+    "to_time": "13:50"
+  },
+  "sections": [
+    {
+      "section_name": "الصيدلية الخارجية",
+      "items": [
+        {
+          "code": "PH010000285",
+          "description": "nevilob 2.5mg 14tab marcyril",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:12",
+          "net_price": 12.65,
+          "patient_share": 0.0,
+          "payer_share": 12.65
+        },
+        {
+          "code": "PH012000069",
+          "description": "aldactone25 MG 20TAB UK",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:12",
+          "net_price": 50.6,
+          "patient_share": 0.0,
+          "payer_share": 50.6
+        },
+        {
+          "code": "PH011000105",
+          "description": "mystro ir 500mg 30tab joswe",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:12",
+          "net_price": 3.45,
+          "patient_share": 0.0,
+          "payer_share": 3.45
+        },
+        {
+          "code": "PH010000232",
+          "description": "PLAVIX 75 MG 28TAB SANOFI",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:12",
+          "net_price": 75.9,
+          "patient_share": 0.0,
+          "payer_share": 75.9
+        },
+        {
+          "code": "PH015000042",
+          "description": "nootropil 800mg 30 TAB الأصلي",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:12",
+          "net_price": 36.42,
+          "patient_share": 0.0,
+          "payer_share": 36.42
+        },
+        {
+          "code": "PH017000015",
+          "description": "aspirincoated 75mg-56 tablets / bristol",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:12",
+          "net_price": 3.45,
+          "patient_share": 0.0,
+          "payer_share": 3.45
+        },
+        {
+          "code": "PH007000225",
+          "description": "glycerin 5supp adult egypt",
+          "quantity": 1,
+          "date": "10/04/2025",
+          "time": "16:35",
+          "net_price": 5.75,
+          "patient_share": 0.0,
+          "payer_share": 5.75
+        }
+      ],
+      "section_total": {
+        "net_price": 188.22,
+        "patient_share": 0.0,
+        "payer_share": 188.22
+      }
+    },
+    {
+      "section_name": "أدوية و مستلزمات طبية",
+      "items": [
+        {
+          "code": "IV000000022",
+          "description": "Disposable Infusion Set I.V SET",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "20:17",
+          "net_price": 3.45,
+          "patient_share": 0.0,
+          "payer_share": 3.45
+        },
+        {
+          "code": "IV000000014",
+          "description": "IV flow regulator",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "20:17",
+          "net_price": 10.64,
+          "patient_share": 0.0,
+          "payer_share": 10.64
+        },
+        {
+          "code": "CL022000002",
+          "description": "N/S 0.9% INFUSION 500ML - IN",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "20:17",
+          "net_price": 13.8,
+          "patient_share": 0.0,
+          "payer_share": 13.8
+        },
+        {
+          "code": "IV000000022",
+          "description": "Disposable Infusion Set I.V SET",
+          "quantity": 3,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 10.35,
+          "patient_share": 0.0,
+          "payer_share": 10.35
+        },
+        {
+          "code": "SYR00000026",
+          "description": "Syringe 10ml",
+          "quantity": 3,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 4.14,
+          "patient_share": 0.0,
+          "payer_share": 4.14
+        },
+        {
+          "code": "SYR00000016",
+          "description": "Syringe 20ml",
+          "quantity": 3,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 7.18,
+          "patient_share": 0.0,
+          "payer_share": 7.18
+        },
+        {
+          "code": "SYR00000003",
+          "description": "Syringe 5ml",
+          "quantity": 3,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 2.62,
+          "patient_share": 0.0,
+          "payer_share": 2.62
+        },
+        {
+          "code": "URINE000008",
+          "description": "Urine bag 2000ml",
+          "quantity": 2,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 6.39,
+          "patient_share": 0.0,
+          "payer_share": 6.39
+        },
+        {
+          "code": "DIAP000004",
+          "description": "Diaper adult size XL",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 5.18,
+          "patient_share": 0.0,
+          "payer_share": 5.18
+        },
+        {
+          "code": "GEN00000044",
+          "description": "UNDER BED",
+          "quantity": 2,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 5.96,
+          "patient_share": 0.0,
+          "payer_share": 5.96
+        },
+        {
+          "code": "NEED0000006",
+          "description": "Disposable needle size 26G",
+          "quantity": 2,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 0.69,
+          "patient_share": 0.0,
+          "payer_share": 0.69
+        },
+        {
+          "code": "NEED0000052",
+          "description": "Disposable needle size 19G",
+          "quantity": 2,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 0.69,
+          "patient_share": 0.0,
+          "payer_share": 0.69
+        },
+        {
+          "code": "GEN00000063",
+          "description": "SUGAR STRIPS شرائح سكر",
+          "quantity": 5,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 11.73,
+          "patient_share": 0.0,
+          "payer_share": 11.73
+        },
+        {
+          "code": "CL021000011",
+          "description": "LASIX 20MG/2ML - IN",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 5.75,
+          "patient_share": 0.0,
+          "payer_share": 5.75
+        },
+        {
+          "code": "CL022000002",
+          "description": "N/S 0.9% INFUSION 500ML - IN",
+          "quantity": 2,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 27.6,
+          "patient_share": 0.0,
+          "payer_share": 27.6
+        },
+        {
+          "code": "CL010000002",
+          "description": "pantoprazole 40mg inj - IN",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 23.0,
+          "patient_share": 0.0,
+          "payer_share": 23.0
+        },
+        {
+          "code": "CL005000010",
+          "description": "ROCEPHIN 1G INJ - IN",
+          "quantity": 1,
+          "date": "08/04/2025",
+          "time": "23:46",
+          "net_price": 14.95,
+          "patient_share": 0.0,
+          "payer_share": 14.95
+        },
+        {
+          "code": "SYR00000026",
+          "description": "Syringe 10ml",
+          "quantity": 3,
+          "date": "09/04/2025",
+          "time": "10:42",
+          "net_price": 4.14,
+          "patient_share": 0.0,
+          "payer_share": 4.14
+        },
+        {
+          "code": "CL005000010",
+          "description": "ROCEPHIN 1G INJ - IN",
+          "quantity": 1,
+          "date": "09/04/2025",
+          "time": "10:42",
+          "net_price": 14.95,
+          "patient_share": 0.0,
+          "payer_share": 14.95
+        },
+        {
+          "code": "CL022000002",
+          "description": "N/S 0.9% INFUSION 500ML - IN",
+          "quantity": 1,
+          "date": "09/04/2025",
+          "time": "10:42",
+          "net_price": 13.8,
+          "patient_share": 0.0,
+          "payer_share": 13.8
+        }
+      ],
+      "section_total": {
+        "net_price": null,
+        "patient_share": null,
+        "payer_share": null
+      }
+    }
+  ],
+  "summary": {
+    "total": {"value": 375.23, "payer_share": 375.23, "patient_share": 0.0},
+    "medical_service": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "discount": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "vat": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "stamp_duty": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "net": {"value": 375.23, "payer_share": 375.23, "patient_share": 0.0}
+  },
+  "run_date": "24/04/2025",
+  "user": "kanz"
+}

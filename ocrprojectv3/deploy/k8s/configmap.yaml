@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ocr-config
+  namespace: ocr
+data:
+  REDIS_URL: redis://redis:6379/0
+  VLLM_API_URL: http://vllm:8000/v1
+  VLLM_MODEL_NAME: numind/NuExtract3-FP8
+  # Same number as the vLLM --max-model-len argument.
+  VLLM_MAX_MODEL_LEN: "32768"
+  VISION_PATCH_SIZE: "16"
+  VISION_MERGE_SIZE: "2"
+  VISION_MIN_PIXELS: "65536"
+  VISION_MAX_PIXELS: "16777216"
+  ID_DETECT_CONF: "0.35"
+  TEMPLATES_DIR: /app/app/templates
+  STORAGE_DIR: /data
+  ID_MODEL_PATH: /models/id_card_detection/best.pt
+  ORIENT_MODEL_PATH: /models/orientation_classifier/best.pt
+  TASK_RESULT_EXPIRE_TIME: "259200"
+  MERGE_LOCK_TTL_SECONDS: "120"

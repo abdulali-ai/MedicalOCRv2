@@ -1,0 +1,44 @@
+FROM python:3.12-slim-bookworm
+
+# Same install as ~/vllm-env: Python 3.12 and `uv pip install vllm`.
+# vLLM 0.33.0 pins torchaudio==2.11.0, which is not published on the
+# CUDA 13.2 index, so the torch backend is left at uv's default.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gcc \
+        g++ \
+        libglib2.0-0 \
+        libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /uvx /bin/
+
+# Build context is the local wheels directory. Install only from those files.
+COPY . /wheels
+
+ENV UV_SYSTEM_PYTHON=1
+
+# nvcc 13.5 is installed by pip under site-packages, and the runtime
+# resolved next to it is 13.0. FlashInfer looks up $CUDA_HOME/bin/nvcc
+# and rejects those 13.0 headers, so the matching 13.5 runtime replaces them.
+RUN uv pip install --system --no-cache --offline --no-index --find-links /wheels "vllm==0.33.0" \
+    && uv pip install --system --no-cache --offline --no-index --find-links /wheels \
+        --force-reinstall --no-deps "nvidia-cuda-runtime==13.5.37" \
+    && cu=/usr/local/lib/python3.12/site-packages/nvidia/cu13 \
+    && ln -sfn libcudart.so.13 "$cu/lib/libcudart.so" \
+    && ln -sfn libnvvm.so.4 "$cu/lib/libnvvm.so" \
+    && ln -sfn lib "$cu/lib64" \
+    && mkdir -p "$cu/lib/stubs" \
+    && printf '%s\n' 'OUTPUT_FORMAT(elf64-x86-64)' 'GROUP ( libcuda.so.1 )' > "$cu/lib/stubs/libcuda.so" \
+    && if [ ! -e /lib64/ld-linux-x86-64.so.2 ]; then mkdir -p /lib64 && ln -s /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2; fi \
+    && "$cu/bin/nvcc" --version \
+    && printf '%s\n' 'extern "C" __global__ void k() {}' > /tmp/k.cu \
+    && "$cu/bin/nvcc" -c /tmp/k.cu -o /tmp/k.o \
+    && rm -f /tmp/k.cu /tmp/k.o \
+    && rm -rf /wheels
+
+ENV CUDA_HOME=/usr/local/lib/python3.12/site-packages/nvidia/cu13
+ENV PATH="/usr/local/lib/python3.12/site-packages/nvidia/cu13/bin:/usr/local/bin:${PATH}"
+
+EXPOSE 8000

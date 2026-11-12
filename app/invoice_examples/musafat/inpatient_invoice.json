@@ -1,0 +1,109 @@
+{
+  "hospital_name": "Masarra Clinic",
+  "document_title": "فاتورة إيواء",
+  "patient": {
+    "file_number": "226948",
+    "name": "ربيعه احمد عطية",
+    "company": "شركة ميثاق للتأمين",
+    "organization": "هيئة الرقابة الإدارية",
+    "employee_number": "aca-2501-03901-p03",
+    "relationship": "نفسه"
+  },
+  "stay": {
+    "admission_date": "05.04.2025",
+    "discharge_date": "05.04.2025"
+  },
+  "receipt": {
+    "receipt_number": "731851",
+    "receipt_date": "05.04.2025"
+  },
+  "sections": [
+    {
+      "section_name": null,
+      "items": [
+        {
+          "code": "3132006390",
+          "description": "أشعة تحت العملية 4",
+          "english_description": "PEROPERATIVE C-ARM X-RAY 4",
+          "date": "05.04.2025",
+          "time": "10:43",
+          "quantity": 1,
+          "unit_price": 375.0,
+          "net_price": 375.0
+        }
+      ],
+      "section_total": {
+        "net_price": 375.0
+      }
+    },
+    {
+      "section_name": "خدمات إيوائية",
+      "items": [
+        {
+          "code": "316202",
+          "description": "ورقة خروج",
+          "english_description": "Discharge",
+          "date": "05.04.2025",
+          "time": "11:21",
+          "quantity": 1,
+          "unit_price": 10.0,
+          "net_price": 10.0
+        },
+        {
+          "code": "316201",
+          "description": "فتح ملف إيواء",
+          "english_description": "Exam. Of Admission",
+          "date": "05.04.2025",
+          "time": "09:11",
+          "quantity": 1,
+          "unit_price": 15.0,
+          "net_price": 15.0
+        }
+      ],
+      "section_total": {
+        "net_price": 25.0
+      }
+    },
+    {
+      "section_name": "أدوية ومستلزمات",
+      "items": [
+        {
+          "code": "321",
+          "description": "أدوية و معدات من الإيواء",
+          "english_description": "InPatient Medicine",
+          "date": "05.04.2025",
+          "time": "11:14",
+          "quantity": 1,
+          "unit_price": 1425.0,
+          "net_price": 1425.0
+        }
+      ],
+      "section_total": {
+        "net_price": 1425.0
+      }
+    },
+    {
+      "section_name": "عمليات جراحية",
+      "items": [
+        {
+          "code": "316321105",
+          "description": "",
+          "english_description": "ERCP 3 Mechanical liteotripsy high risk",
+          "date": "05.04.2025",
+          "time": "11:00",
+          "quantity": 1,
+          "unit_price": 8937.5,
+          "net_price": 8937.5
+        }
+      ],
+      "section_total": {
+        "net_price": 8937.5
+      }
+    }
+  ],
+  "summary": {
+    "total": 10762.5,
+    "paid": 0.0,
+    "remaining": 10762.5
+  }
+}

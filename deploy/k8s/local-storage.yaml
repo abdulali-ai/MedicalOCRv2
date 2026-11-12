@@ -1,0 +1,43 @@
+# Single-node hostPath so every pod can mount the same document files.
+# The generic claim in pvc.yaml asks for ReadWriteMany, which the bundled
+# local-path provisioner does not provide.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ocr-hostpath
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: Immediate
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ocr-storage-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ocr-hostpath
+  hostPath:
+    path: /var/lib/ocr-storage
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ocr-storage
+  namespace: ocr
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ocr-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: nvidia
+handler: nvidia

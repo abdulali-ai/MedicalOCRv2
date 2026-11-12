@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    ID_MODEL_PATH=/models/id_card_detection/best.pt \
+    ORIENT_MODEL_PATH=/models/orientation_classifier/best.pt
+
+COPY ocrprojectv3/requirements-vision.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY ocrprojectv3/app /app/app
+COPY models/id_card_detection/best.pt /models/id_card_detection/best.pt
+COPY models/orientation_classifier/best.pt /models/orientation_classifier/best.pt
+
+CMD ["python", "-m", "app.services.vision_worker"]

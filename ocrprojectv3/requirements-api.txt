@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+redis
+httpx
+pymupdf
+pillow
+python-multipart

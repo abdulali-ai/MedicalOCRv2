@@ -1,0 +1,45 @@
+{
+  "hospital_name": "Masarra Clinic",
+  "document_title": "كشوفات",
+  "patient": {
+    "file_number": "1121128",
+    "name": "نادر حلاسام البتي",
+    "company": "شركة ميثاق للتأمين",
+    "organization": "هيئة الرقابة الادراية",
+    "employee_number": null,
+    "relationship": null
+  },
+  "stay": {
+    "admission_date": null,
+    "discharge_date": null
+  },
+  "receipt": {
+    "receipt_number": null,
+    "receipt_date": "19.07.2025"
+  },
+  "sections": [
+    {
+      "section_name": "كشوفات",
+      "items": [
+        {
+          "code": null,
+          "description": "كشف طبيب+++",
+          "english_description": null,
+          "date": "19/07/2025",
+          "time": "7:57 pm",
+          "quantity": 1,
+          "unit_price": 38.0,
+          "net_price": 38.0
+        }
+      ],
+      "section_total": {
+        "net_price": 38.0
+      }
+    }
+  ],
+  "summary": {
+    "total": 38.0,
+    "paid": null,
+    "remaining": null
+  }
+}

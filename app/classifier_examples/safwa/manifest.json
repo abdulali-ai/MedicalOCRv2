@@ -1,0 +1,37 @@
+[
+  {
+    "file": "claim3_0003.jpg",
+    "document_type": "other_document",
+    "source": "Claim 3/img10152025_0003.jpg"
+  },
+  {
+    "file": "claim3_0005.jpg",
+    "document_type": "inpatient_invoice",
+    "source": "Claim 3/img10152025_0005.jpg"
+  },
+  {
+    "file": "claim3_0007.jpg",
+    "document_type": "inpatient_invoice",
+    "source": "Claim 3/img10152025_0007.jpg"
+  },
+  {
+    "file": "claim4_0012.jpg",
+    "document_type": "other_document",
+    "source": "Claim 4/img10152025_0012.jpg"
+  },
+  {
+    "file": "claim5_0013.jpg",
+    "document_type": "other_document",
+    "source": "Claim 5/img10152025_0013.jpg"
+  },
+  {
+    "file": "claim5_0015.jpg",
+    "document_type": "other_document",
+    "source": "Claim 5/img10152025_0015.jpg"
+  },
+  {
+    "file": "outpatient_invoice.jpg",
+    "document_type": "outpatient_invoice",
+    "source": "tests/safwa/4_page_1 (1).jpg"
+  }
+]

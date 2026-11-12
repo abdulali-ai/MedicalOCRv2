@@ -1,0 +1,25 @@
+# ocr-storage must be ReadWriteMany. The API, PDF worker, vision worker, and
+# extract dispatcher all mount it and pass file paths through Redis.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ocr-storage
+  namespace: ocr
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: ocr
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

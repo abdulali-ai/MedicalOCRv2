@@ -1,0 +1,136 @@
+# DISABLED: do not apply this file. vLLM runs on the host via PM2
+# (deploy/vllm/ecosystem.config.cjs + deploy/k8s/vllm-host.yaml) because the
+# GPU container was OOMing / crashing the machine.
+#
+# Serving budget recorded from numind/NuExtract3-FP8 config.json and processor_config.json:
+#   model_type qwen3_5
+#   quantization_config.quant_method compressed-tensors (FP8 float-quantized)
+#   vision patch_size 16, spatial_merge_size 2
+#   text max_position_embeddings 262144
+#   --max-model-len 32768 (also VLLM_MAX_MODEL_LEN)
+#   MTP off. The checkpoint has mtp_num_hidden_layers=1 and model_mtp.safetensors,
+#   and this deployment does not pass --speculative-config.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-check
+  namespace: ocr
+data:
+  check_checkpoint.py: |
+    #!/usr/bin/env python3
+    import json
+    import sys
+
+    CONFIG_PATH = "/models/NuExtract3-FP8/config.json"
+    MAX_MODEL_LEN = 32768
+
+    def main():
+        try:
+            with open(CONFIG_PATH, encoding="utf-8") as response:
+                config = json.load(response)
+        except Exception as exc:
+            sys.exit(f"NuExtract3-FP8 config.json is missing or unreadable: {exc}")
+        if config.get("model_type") != "qwen3_5":
+            sys.exit(f"Unexpected model_type: {config.get('model_type')}")
+        quant = config.get("quantization_config") or {}
+        if quant.get("quant_method") != "compressed-tensors":
+            sys.exit(f"Expected compressed-tensors FP8 quantization, got {quant.get('quant_method')}")
+        vision = config.get("vision_config") or {}
+        if vision.get("patch_size") != 16 or vision.get("spatial_merge_size") != 2:
+            sys.exit("Vision preprocessor does not match the recorded budget")
+        text = config.get("text_config") or {}
+        max_pos = int(text.get("max_position_embeddings") or 0)
+        if max_pos < MAX_MODEL_LEN:
+            sys.exit(f"Checkpoint context {max_pos} is smaller than --max-model-len {MAX_MODEL_LEN}")
+        print(
+            "checkpoint ok"
+            f" quantization={quant.get('quant_method')}"
+            f" max_position_embeddings={max_pos}"
+            f" serving_max_model_len={MAX_MODEL_LEN}"
+            f" mtp_num_hidden_layers={text.get('mtp_num_hidden_layers')}"
+            " mtp_enabled=false"
+        )
+
+    if __name__ == "__main__":
+        main()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: ocr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      runtimeClassName: nvidia
+      containers:
+        - name: vllm
+          image: ocr-vllm:local
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              python /checks/check_checkpoint.py
+              exec vllm serve /models/NuExtract3-FP8 \
+                --served-model-name numind/NuExtract3-FP8 \
+                --host 0.0.0.0 \
+                --port 8000 \
+                --trust-remote-code \
+                --quantization compressed-tensors \
+                --max-model-len 32768 \
+                --limit-mm-per-prompt '{"image": 8, "video": 0}' \
+                --chat-template-content-format openai \
+                --generation-config vllm
+          ports:
+            - containerPort: 8000
+          env:
+            - name: HF_HOME
+              value: /root/.cache/huggingface
+            - name: HF_HUB_OFFLINE
+              value: "1"
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: checks
+              mountPath: /checks
+              readOnly: true
+            - name: hf-cache
+              mountPath: /root/.cache/huggingface
+            - name: model
+              mountPath: /models/NuExtract3-FP8
+              readOnly: true
+      volumes:
+        - name: checks
+          configMap:
+            name: vllm-check
+        - name: hf-cache
+          hostPath:
+            path: /var/lib/ocr-hf
+            type: DirectoryOrCreate
+        - name: model
+          hostPath:
+            path: /home/utec/ocr/models/NuExtract3-FP8
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  namespace: ocr
+spec:
+  selector:
+    app: vllm
+  ports:
+    - port: 8000
+      targetPort: 8000

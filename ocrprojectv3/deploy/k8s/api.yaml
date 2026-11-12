@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: ocr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: ocr-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: ocr-config
+          readinessProbe:
+            httpGet:
+              path: /api/health/
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: storage
+              mountPath: /data
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: ocr-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: ocr
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 5000
+      targetPort: 5000

@@ -1,0 +1,8 @@
+ocrprojectv3
+storage
+models/NuExtract3-FP8
+.venv
+**/__pycache__
+**/*.pyc
+**/.env
+**/.git
