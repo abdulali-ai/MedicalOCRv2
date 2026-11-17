@@ -106,7 +106,16 @@ def normalize_massara_invoice(data: dict) -> dict:
     return data
 
 
-def _doc_key(body, template: str | None = None):
+def _invoice_class(document_type) -> str:
+    """Inpatient and outpatient stay separate for safwa even when IDs match."""
+    if _is_inpatient(document_type):
+        return "inpatient"
+    if document_type == "outpatient_invoice":
+        return "outpatient"
+    return ""
+
+
+def _doc_key(body, template: str | None = None, document_type=None):
     patient = body.get("patient") or {}
     if template in FILE_INVOICE_TEMPLATES:
         receipt = body.get("receipt") or {}
@@ -114,7 +123,10 @@ def _doc_key(body, template: str | None = None):
             _norm(patient.get("file_number")),
             _norm(receipt.get("invoice_number") or receipt.get("receipt_number")),
         )
-    return _norm(patient.get("admission_no")), _norm(patient.get("medical_no"))
+    key = (_norm(patient.get("admission_no")), _norm(patient.get("medical_no")))
+    if template == "safwa":
+        return (*key, _invoice_class(document_type))
+    return key
 
 
 def _key_has_ids(key: tuple[str, str]) -> bool:
@@ -168,7 +180,7 @@ def repair_sandwiched_patient_ids(pages: list, template: str | None = None) -> l
         prepared.append({
             "page": page.get("page"),
             "body": body,
-            "key": _doc_key(body, template),
+            "key": _doc_key(body, template, page.get("document_type")),
             "document_type": page.get("document_type"),
         })
     prepared.sort(key=lambda item: _page_sort_key({"page": item["page"]}))
@@ -191,6 +203,8 @@ def repair_sandwiched_patient_ids(pages: list, template: str | None = None) -> l
         if neighbor_key != next_item["key"]:
             continue
         if curr_item["key"] == neighbor_key:
+            continue
+        if template == "safwa" and _invoice_class(curr_item["document_type"]) != _invoice_class(prev_item["document_type"]):
             continue
         _copy_patient_ids(curr_item["body"], prev_item["body"], template)
         curr_item["key"] = neighbor_key
@@ -271,7 +285,7 @@ def merge_pages(pages, template: str | None = None):
     docs = {}
     for page in repair_sandwiched_patient_ids(pages, template):
         body = page["data"]
-        key = _doc_key(body, template)
+        key = _doc_key(body, template, page.get("document_type"))
         page_no = page.get("page")
 
         if key not in docs:
@@ -308,6 +322,8 @@ def merge_pages(pages, template: str | None = None):
             doc["summary"] = _merge_dicts(doc.get("summary"), body["summary"])
     merged = []
     for doc in docs.values():
-        doc.pop("_document_type", None)
+        kind = doc.pop("_document_type", None)
+        if template == "safwa" and kind:
+            doc["document_type"] = kind
         merged.append(doc)
     return merged

@@ -7,6 +7,7 @@
     ]
   },
   "invoice": {
+    "instructions": "Write each section once. Do not copy a section or its rows into another section. Keep rows that share a code when the date or time differs.",
     "hospital_name": "verbatim-string",
     "document_title": "verbatim-string",
     "patient": {

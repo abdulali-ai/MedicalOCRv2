@@ -39,4 +39,4 @@ exec vllm serve "$MODEL_DIR" \
   --limit-mm-per-prompt "$LIMIT_MM_PER_PROMPT" \
   --chat-template-content-format openai \
   --generation-config vllm \
-  --max-num-batched-tokens 8192
+  --structured-outputs-config.backend xgrammar

@@ -1,45 +1,47 @@
 {
   "hospital_name": "مستشفى الصفوة الدولي",
-  "document_title": "إيصال رقم: RG2500172187",
+  "document_title": "إيصال رقم: RG2500172090",
+  "print_date": null,
+  "invoice_number": "RG2500172090",
   "patient": {
-    "file_number": "U2111007156",
-    "name": "ملاك ابوبكر الصديق الزواوي",
-    "company": "شركة ميثاق للتأمين (ACA)",
-    "organization": "هيئة الرقابة الإدارية",
-    "employee_number": "ACA-2501-03370-S02",
-    "relationship": null
+    "name": "ريان فرج ابوبكر الخراز",
+    "admission_no": "OP2500090469",
+    "medical_no": "U2500005228",
+    "status": null
+  },
+  "payer": "شركة ميثاق للتأمين (ACA)",
+  "agreement": "هيئة الرقابة الإدارية",
+  "doctor": "د.غزاله هب الريح/dr.gazalla hab elreh",
+  "specialty": "نساء و ولادة",
+  "room": {
+    "number": null,
+    "type": null
   },
   "stay": {
-    "admission_date": null,
-    "discharge_date": null
-  },
-  "receipt": {
-    "receipt_number": "RG2500172187",
-    "receipt_date": "18/07/2025 18:15"
+    "from_date": null,
+    "from_time": null,
+    "to_date": null,
+    "to_time": null
   },
   "sections": [
     {
-      "section_name": "خدمات طبية",
+      "section_name": "عيادة النساء مشاويات",
       "items": [
         {
-          "code": "ER00000009",
-          "description": "حقنة بالعضل بدون دواء (عدد 1) بالمستلزمات",
-          "english_description": null,
-          "date": "18/07/2025",
-          "time": "18:15",
+          "code": "SPE0000017",
+          "description": "كشف طبيب مناوب : د.غزاله هب الريح/dr.gazalla hab elreh",
           "quantity": 1,
-          "unit_price": 0.6,
-          "net_price": 0.6
+          "date": "18/07/2025",
+          "time": "14:49",
+          "unit_price": 25.0,
+          "net_price": 25.0
         }
       ],
       "section_total": {
-        "net_price": 0.6
+        "net_price": 25.0
       }
     }
   ],
-  "summary": {
-    "total": 0.6,
-    "paid": 0.0,
-    "remaining": 0.6
-  }
+  "run_date": "18/07/2025 14:49",
+  "user": "بشري.محمد"
 }

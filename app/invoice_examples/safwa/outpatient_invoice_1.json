@@ -1,0 +1,101 @@
+{
+  "hospital_name": "مستشفى الصفوة الدولي",
+  "document_title": "فاتورة رقم : FI2500001740",
+  "print_date": "07/08/2025 14:52",
+  "invoice_number": "FI2500001740",
+  "patient": {
+    "name": "خديجه ابراهيم محمد عقيبه",
+    "admission_no": "IP2500001615",
+    "medical_no": "U2200036133",
+    "status": "حالة مستشفى"
+  },
+  "payer": "شركة ميثاق للتأمين (ACA)",
+  "agreement": "هيئة الرقابة الإدارية",
+  "doctor": "د.سالم كشبة / dr.salem keshba",
+  "specialty": "باطنة أطفال",
+  "room": {
+    "number": "VIRT-4",
+    "type": "VIP Room- جناح فاخر"
+  },
+  "stay": {
+    "from_date": "17/07/2025",
+    "from_time": "19:12",
+    "to_date": "21/07/2025",
+    "to_time": "3:05"
+  },
+  "sections": [
+    {
+      "section_name": "حالة مستشفى",
+      "items": [
+        {
+          "code": null,
+          "description": "خدمات الإقامة والاعاشة",
+          "quantity": 1,
+          "date": null,
+          "time": null,
+          "unit_price": 1367.8,
+          "net_price": 1367.8
+        },
+        {
+          "code": null,
+          "description": "أجور أطباء",
+          "quantity": 1,
+          "date": null,
+          "time": null,
+          "unit_price": 1089.0,
+          "net_price": 1089.0
+        },
+        {
+          "code": null,
+          "description": "المختبر",
+          "quantity": 1,
+          "date": null,
+          "time": null,
+          "unit_price": 274.4,
+          "net_price": 274.4
+        },
+        {
+          "code": null,
+          "description": "الاشعة",
+          "quantity": 1,
+          "date": null,
+          "time": null,
+          "unit_price": 112.0,
+          "net_price": 112.0
+        },
+        {
+          "code": null,
+          "description": "خدمات طبية و اجهزة طبية",
+          "quantity": 1,
+          "date": null,
+          "time": null,
+          "unit_price": 1848.0,
+          "net_price": 1848.0
+        },
+        {
+          "code": null,
+          "description": "المستلزمات الطبية",
+          "quantity": 1,
+          "date": null,
+          "time": null,
+          "unit_price": 187.9,
+          "net_price": 187.9
+        },
+        {
+          "code": null,
+          "description": "الصيدلية الخارجية",
+          "quantity": 1,
+          "date": null,
+          "time": null,
+          "unit_price": 201.0,
+          "net_price": 201.0
+        }
+      ],
+      "section_total": {
+        "net_price": 5080.1
+      }
+    }
+  ],
+  "run_date": "23/07/2025",
+  "user": null
+}

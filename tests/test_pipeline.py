@@ -16,6 +16,7 @@ from app.core.extract.budget import (
     image_token_count,
     template_token_count,
 )
+from app.core.extract.client import template_to_json_schema
 from app.core.extract.parse import invoice_is_empty, safe_parse_json
 from app.core.extract.examples import (
     classifier_examples,
@@ -57,18 +58,30 @@ class RegistryTests(unittest.TestCase):
     def test_janzour_file(self):
         registry = load_registry()
         self.assertEqual(registry.names, ["janzour", "massara", "musafat", "safwa"])
-        self.assertEqual(registry.get("safwa")["invoice"], registry.get("janzour")["invoice"])
+        safwa_invoice = dict(registry.get("safwa")["invoice"])
+        self.assertEqual(
+            safwa_invoice.pop("instructions"),
+            "Output every printed table row. Keep consecutive rows that repeat the same code, time, and price as separate items. Do not merge them.",
+        )
+        self.assertEqual(safwa_invoice, registry.get("janzour")["invoice"])
         self.assertEqual(registry.get("safwa")["id_card"], registry.get("janzour")["id_card"])
         self.assertEqual(
             registry.get("safwa")["classify"]["document_type"],
             registry.get("massara")["classify"]["document_type"],
         )
-        outpatient = registry.get("safwa")["outpatient_invoice"]
-        self.assertEqual(outpatient["patient"]["file_number"], "verbatim-string")
-        self.assertEqual(outpatient["receipt"]["receipt_number"], "verbatim-string")
-        self.assertIsNone(outpatient["patient"]["relationship"])
-        self.assertEqual(outpatient["summary"]["remaining"], 0.0)
+        self.assertEqual(
+            registry.get("safwa")["classify"]["instructions"],
+            "If the title at the top contains فاتورة رقم or إيصال رقم followed by a number, choose outpatient_invoice. If the title is كشف تفاصيل الخدمات and has no invoice number, choose inpatient_invoice.",
+        )
+        self.assertNotIn("instructions", registry.get("massara")["classify"])
         invoice = registry.get("janzour")["invoice"]
+        outpatient = registry.get("safwa")["outpatient_invoice"]
+        self.assertEqual(outpatient["invoice_number"], "verbatim-string")
+        self.assertNotIn("summary", outpatient)
+        item = outpatient["sections"][0]["items"][0]
+        self.assertEqual(item["unit_price"], 0.0)
+        self.assertNotIn("patient_share", item)
+        self.assertEqual(outpatient["patient"], invoice["patient"])
         self.assertEqual(invoice["patient"]["admission_no"], "verbatim-string")
         self.assertIn("card_number", registry.get("janzour")["id_card"])
         self.assertIn("validity_period", registry.get("janzour")["id_card"])
@@ -101,11 +114,16 @@ class RegistryTests(unittest.TestCase):
         massara = registry.get("massara")
         self.assertEqual(
             musafat["invoice"]["receipt"]["receipt_number"],
-            "verbatim-string. Must be the printed number. Do not return null.",
+            "verbatim-string. The digits printed after إيصال رقم. Copy them. Do not return null.",
         )
         musafat_invoice = json.loads(json.dumps(musafat["invoice"]))
         musafat_invoice["receipt"]["receipt_number"] = "verbatim-string"
-        self.assertEqual(musafat_invoice, massara["invoice"])
+        massara_invoice = json.loads(json.dumps(massara["invoice"]))
+        self.assertEqual(
+            massara_invoice.pop("instructions"),
+            "Write each section once. Do not copy a section or its rows into another section. Keep rows that share a code when the date or time differs.",
+        )
+        self.assertEqual(musafat_invoice, massara_invoice)
         self.assertEqual(musafat["classify"], massara["classify"])
         self.assertEqual(musafat["outpatient_invoice"], massara["outpatient_invoice"])
         self.assertEqual(musafat["id_card"], massara["id_card"])
@@ -372,6 +390,73 @@ class MergeTests(unittest.TestCase):
             ["خدمات أخرى", "خدمات إيوائية", "", "عمليات جراحية"],
         )
 
+    def test_safwa_keeps_inpatient_and_outpatient_apart(self):
+        patient = {"admission_no": "IP2500001615", "medical_no": "U2200036133"}
+        pages = [
+            {
+                "page": 3,
+                "document_type": "outpatient_invoice",
+                "data": {
+                    "patient": patient,
+                    "invoice_number": "FI2500001740",
+                    "sections": [{"section_name": "حالة مستشفى", "items": [{"code": "A"}]}],
+                },
+            },
+            {
+                "page": 4,
+                "document_type": "inpatient_invoice",
+                "data": {
+                    "patient": patient,
+                    "sections": [{"section_name": "كشف", "items": [{"code": "B"}]}],
+                },
+            },
+            {
+                "page": 5,
+                "document_type": "inpatient_invoice",
+                "data": {
+                    "patient": patient,
+                    "sections": [{"section_name": "كشف", "items": [{"code": "C"}]}],
+                },
+            },
+        ]
+        merged = merge_pages(pages, template="safwa")
+        self.assertEqual(len(merged), 2)
+        by_type = {doc["document_type"]: doc for doc in merged}
+        self.assertEqual(by_type["outpatient_invoice"]["pages"], [3])
+        self.assertEqual(by_type["inpatient_invoice"]["pages"], [4, 5])
+        self.assertEqual(
+            [item["code"] for item in by_type["inpatient_invoice"]["sections"][0]["items"]],
+            ["B", "C"],
+        )
+        self.assertEqual(len(merge_pages(pages)), 1)
+
+        sandwiched = [
+            {
+                "page": 1,
+                "document_type": "inpatient_invoice",
+                "data": {"patient": patient, "sections": [{"section_name": "كشف", "items": [{"code": "A"}]}]},
+            },
+            {
+                "page": 2,
+                "document_type": "outpatient_invoice",
+                "data": {
+                    "patient": {"admission_no": "IP9", "medical_no": "U9"},
+                    "invoice_number": "RG1",
+                    "sections": [{"section_name": "إيصال", "items": [{"code": "B"}]}],
+                },
+            },
+            {
+                "page": 3,
+                "document_type": "inpatient_invoice",
+                "data": {"patient": patient, "sections": [{"section_name": "كشف", "items": [{"code": "C"}]}]},
+            },
+        ]
+        split = merge_pages(sandwiched, template="safwa")
+        self.assertEqual(len(split), 2)
+        outpatient_doc = next(doc for doc in split if doc["document_type"] == "outpatient_invoice")
+        self.assertEqual(outpatient_doc["pages"], [2])
+        self.assertEqual(outpatient_doc["patient"]["admission_no"], "IP9")
+
 
 class AssembleTests(unittest.TestCase):
     def test_passport_pages_are_omitted(self):
@@ -466,6 +551,7 @@ class BudgetTests(unittest.TestCase):
                 "other_document",
                 "other_document",
                 "outpatient_invoice",
+                "other_document",
             ],
         )
         self.assertEqual(
@@ -476,7 +562,7 @@ class BudgetTests(unittest.TestCase):
                 "inpatient_invoice",
                 "other_document",
                 "other_document",
-                "other_document",
+                "outpatient_invoice",
                 "outpatient_invoice",
             ],
         )
@@ -515,13 +601,29 @@ class BudgetTests(unittest.TestCase):
         )
         safwa_invoices = invoice_examples("safwa")
         self.assertEqual(safwa_invoices[0].output, examples[0].output)
-        self.assertEqual(len(safwa_invoices), 2)
+        self.assertEqual(len(safwa_invoices), 3)
+        self.assertEqual(
+            [item.file for item in invoice_examples("safwa", "invoice")],
+            ["inpatient_invoice.jpg"],
+        )
+        self.assertEqual(
+            [item.file for item in invoice_examples("safwa", "outpatient_invoice")],
+            ["outpatient_invoice.jpg", "outpatient_invoice_1.jpg"],
+        )
         outpatient = json.loads(safwa_invoices[1].output)
-        self.assertEqual(outpatient["patient"]["file_number"], "U2111007156")
-        self.assertEqual(outpatient["receipt"]["receipt_number"], "RG2500172187")
-        self.assertEqual(outpatient["sections"][0]["items"][0]["code"], "ER00000009")
-        self.assertEqual(outpatient["summary"]["paid"], 0.0)
-        self.assertEqual(outpatient["summary"]["remaining"], 0.6)
+        self.assertEqual(outpatient["invoice_number"], "RG2500172090")
+        self.assertEqual(outpatient["patient"]["admission_no"], "OP2500090469")
+        self.assertEqual(outpatient["patient"]["medical_no"], "U2500005228")
+        self.assertEqual(outpatient["sections"][0]["items"][0]["code"], "SPE0000017")
+        self.assertEqual(outpatient["sections"][0]["items"][0]["unit_price"], 25.0)
+        self.assertEqual(outpatient["user"], "بشري.محمد")
+        second = json.loads(safwa_invoices[2].output)
+        self.assertEqual(second["invoice_number"], "FI2500001740")
+        self.assertEqual(second["patient"]["admission_no"], "IP2500001615")
+        self.assertEqual(second["patient"]["medical_no"], "U2200036133")
+        self.assertEqual(second["sections"][0]["items"][0]["description"], "خدمات الإقامة والاعاشة")
+        self.assertEqual(second["sections"][0]["section_total"]["net_price"], 5080.1)
+        self.assertEqual(second["user"], "CASHIER")
         massara_invoice = load_registry().get("massara")["invoice"]
         massara_packed = (
             invoice_example_tokens("massara")
@@ -595,6 +697,27 @@ class ParseTests(unittest.TestCase):
             "patient": {"file_number": "450633"},
             "sections": [{"section_name": "تحاليل طبية", "items": [{"code": "A"}]}],
         }))
+
+    def test_massara_invoice_schema_is_json_schema(self):
+        invoice = load_registry().get("massara")["invoice"]
+        invoice.pop("instructions", None)
+        schema = template_to_json_schema(invoice)
+        self.assertEqual(schema["type"], "object")
+        self.assertEqual(schema["properties"]["sections"]["type"], "array")
+        item = schema["properties"]["sections"]["items"]["properties"]["items"]["items"]
+        self.assertEqual(item["properties"]["quantity"]["type"], "integer")
+        self.assertEqual(item["properties"]["net_price"]["type"], "number")
+        self.assertEqual(
+            schema["properties"]["summary"]["properties"]["total"]["type"],
+            ["string", "number", "null"],
+        )
+        labels = template_to_json_schema(
+            {"document_type": ["inpatient_invoice", "outpatient_invoice", "other_document"]}
+        )
+        self.assertEqual(
+            labels["properties"]["document_type"]["enum"],
+            ["inpatient_invoice", "outpatient_invoice", "other_document"],
+        )
 
 
 if __name__ == "__main__":

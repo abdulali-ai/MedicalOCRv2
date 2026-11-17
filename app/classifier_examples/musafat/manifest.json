@@ -28,5 +28,10 @@
     "file": "outpatient_invoice.jpg",
     "document_type": "outpatient_invoice",
     "source": "tests/massara/outpatient_receipt.jpg"
+  },
+  {
+    "file": "other_document_4.jpg",
+    "document_type": "other_document",
+    "source": "tests/Muasifat Clinic/8(1)_page_3.jpg"
   }
 ]

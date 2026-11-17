@@ -221,12 +221,21 @@ async def _call_extract(http, fields: dict, job: dict, stage: str, template: dic
     if stage == "classify":
         examples = classifier_examples(template_name) or None
     elif _is_invoice_stage(stage):
-        examples = invoice_examples(template_name) or None
+        examples = invoice_examples(template_name, stage) or None
     elif stage == "id_card":
         examples = id_card_examples(template_name) or None
     else:
         examples = None
     page = int(fields.get("page") or 0)
+    instructions = None
+    if stage == "classify":
+        raw = template.get("instructions")
+        instructions = raw.strip() if isinstance(raw, str) and raw.strip() else None
+        template = {"document_type": list(template["document_type"])}
+    elif _is_invoice_stage(stage):
+        template = dict(template)
+        raw = template.pop("instructions", None)
+        instructions = raw.strip() if isinstance(raw, str) and raw.strip() else None
     return await extract_image(
         http,
         fields["image_path"],
@@ -234,6 +243,9 @@ async def _call_extract(http, fields: dict, job: dict, stage: str, template: dic
         _max_tokens_for(stage),
         examples=examples,
         trace_page=page if page == 7 and _is_invoice_stage(stage) else None,
+        instructions=instructions,
+        page_id=page,
+        guard_query=_is_invoice_stage(stage),
     )
 
 

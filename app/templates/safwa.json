@@ -4,9 +4,11 @@
       "inpatient_invoice",
       "outpatient_invoice",
       "other_document"
-    ]
+    ],
+    "instructions": "If the title at the top contains فاتورة رقم or إيصال رقم followed by a number, choose outpatient_invoice. If the title is كشف تفاصيل الخدمات and has no invoice number, choose inpatient_invoice."
   },
   "invoice": {
+    "instructions": "Output every printed table row. Keep consecutive rows that repeat the same code, time, and price as separate items. Do not merge them.",
     "hospital_name": "verbatim-string",
     "document_title": "verbatim-string",
     "print_date": "verbatim-string",
@@ -66,21 +68,27 @@
   "outpatient_invoice": {
     "hospital_name": "verbatim-string",
     "document_title": "verbatim-string",
+    "print_date": "verbatim-string",
+    "invoice_number": "verbatim-string",
     "patient": {
-      "file_number": "verbatim-string",
       "name": "verbatim-string",
-      "company": "verbatim-string",
-      "organization": "verbatim-string",
-      "employee_number": "verbatim-string",
-      "relationship": null
+      "admission_no": "verbatim-string",
+      "medical_no": "verbatim-string",
+      "status": "verbatim-string"
+    },
+    "payer": "verbatim-string",
+    "agreement": "verbatim-string",
+    "doctor": "verbatim-string",
+    "specialty": "verbatim-string",
+    "room": {
+      "number": "verbatim-string",
+      "type": "verbatim-string"
     },
     "stay": {
-      "admission_date": null,
-      "discharge_date": null
-    },
-    "receipt": {
-      "receipt_number": "verbatim-string",
-      "receipt_date": "verbatim-string"
+      "from_date": "verbatim-string",
+      "from_time": "verbatim-string",
+      "to_date": "verbatim-string",
+      "to_time": "verbatim-string"
     },
     "sections": [
       {
@@ -89,24 +97,21 @@
           {
             "code": "verbatim-string",
             "description": "verbatim-string",
-            "english_description": null,
+            "quantity": 0,
             "date": "verbatim-string",
             "time": "verbatim-string",
-            "quantity": 0,
             "unit_price": 0.0,
             "net_price": 0.0
           }
         ],
         "section_total": {
           "net_price": 0.0
+
         }
       }
     ],
-    "summary": {
-      "total": 0.0,
-      "paid": 0.0,
-      "remaining": 0.0
-    }
+    "run_date": "verbatim-string",
+    "user": "verbatim-string"
   },
   "id_card": {
     "card_number": "verbatim-string",

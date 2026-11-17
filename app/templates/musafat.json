@@ -22,7 +22,7 @@
       "discharge_date": "verbatim-string"
     },
     "receipt": {
-      "receipt_number": "verbatim-string. Must be the printed number. Do not return null.",
+      "receipt_number": "verbatim-string. The digits printed after إيصال رقم. Copy them. Do not return null.",
       "receipt_date": "verbatim-string"
     },
     "sections": [

@@ -59,7 +59,14 @@ def _parse_classify(path: Path, payload: dict) -> dict:
         raise TemplateError(f"{path.name} classify.document_type has duplicate labels")
     if "other_document" not in labels:
         raise TemplateError(f"{path.name} classify.document_type must include 'other_document'")
-    return {"document_type": list(labels)}
+    parsed = {"document_type": list(labels)}
+    instructions = classify.get("instructions")
+    if instructions is None:
+        return parsed
+    if not isinstance(instructions, str) or not instructions.strip():
+        raise TemplateError(f"{path.name} classify.instructions must be a non-empty string")
+    parsed["instructions"] = instructions.strip()
+    return parsed
 
 
 def load_registry(directory: str | Path | None = None) -> TemplateRegistry:

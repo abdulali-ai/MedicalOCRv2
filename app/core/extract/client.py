@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import logging
 from pathlib import Path
@@ -29,6 +30,94 @@ class ExtractError(RuntimeError):
 
 
 logger = logging.getLogger(__name__)
+
+# A full page capped at 200 DPI is about 1700×2200. The silent shrink that
+# produced 640×827 stayed hidden because nothing checked the bytes after fit.
+MIN_QUERY_LONG_EDGE = 1600
+
+# Longer names first so "verbatim-string" wins over "string" and "date-time" over "date".
+_TYPE_NAMES = (
+    "verbatim-string",
+    "date-time",
+    "integer",
+    "number",
+    "string",
+    "boolean",
+    "date",
+    "time",
+)
+
+
+_SCHEMA_TYPES = {
+    "verbatim-string": {"type": "string"},
+    "string": {"type": "string"},
+    "date": {"type": "string"},
+    "time": {"type": "string"},
+    "date-time": {"type": "string"},
+    "integer": {"type": "integer"},
+    "number": {"type": "number"},
+    "boolean": {"type": "boolean"},
+}
+
+
+def template_to_json_schema(node):
+    """Turn a NuExtract template into a JSON Schema xgrammar can enforce.
+
+    A list of strings is an enum, as in classify.document_type. A one-item
+    list of objects is an array. A bare null accepts string, number, or null
+    because the template does not name a type for that field.
+    """
+    if isinstance(node, dict):
+        return {
+            "type": "object",
+            "properties": {key: template_to_json_schema(value) for key, value in node.items()},
+            "required": list(node),
+            "additionalProperties": False,
+        }
+    if isinstance(node, list):
+        if len(node) == 1 and isinstance(node[0], dict):
+            return {"type": "array", "items": template_to_json_schema(node[0])}
+        if node and all(isinstance(item, str) for item in node):
+            return {"type": "string", "enum": list(node)}
+        return {"type": "array"}
+    if isinstance(node, str):
+        return dict(_SCHEMA_TYPES.get(node, {"type": "string"}))
+    if isinstance(node, bool):
+        return {"type": "boolean"}
+    if isinstance(node, int):
+        return {"type": "integer"}
+    if isinstance(node, float):
+        return {"type": "number"}
+    if node is None:
+        return {"type": ["string", "number", "null"]}
+    return {"type": "string"}
+
+
+def separate_field_notes(template: dict) -> tuple[dict, str | None]:
+    """Turn "verbatim-string. Do not return null." into a type plus an instruction.
+
+    A note written after the type is not a type. NuExtract only reads instructions
+    from the instructions prompt, so the note has to be sent there.
+    """
+    notes: list[str] = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            return {key: walk(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [walk(value) for value in node]
+        if isinstance(node, str):
+            for name in _TYPE_NAMES:
+                prefix = name + "."
+                if node.startswith(prefix):
+                    note = node[len(prefix):].strip()
+                    if note:
+                        notes.append(note)
+                    return name
+        return node
+
+    cleaned = walk(template)
+    return cleaned, " ".join(notes) or None
 
 
 def request_fingerprint(body: dict) -> dict:
@@ -102,6 +191,38 @@ def _fit_query_with_examples(
     return current
 
 
+def _log_payload_images(messages: list[dict], page_id, *, guard_query: bool) -> None:
+    """Decode the JPEGs in the request that is about to be posted."""
+    for message_index, message in enumerate(messages):
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "image_url":
+                continue
+            url = part["image_url"]["url"]
+            raw = base64.b64decode(url.split(",", 1)[1])
+            with Image.open(io.BytesIO(raw)) as image:
+                logger.info(
+                    "page=%s msg=%d size=%dx%d mode=%s bytes=%d sha=%s",
+                    page_id,
+                    message_index,
+                    image.width,
+                    image.height,
+                    image.mode,
+                    len(raw),
+                    hashlib.sha256(raw).hexdigest()[:12],
+                )
+                if guard_query and message.get("role") == "user":
+                    dest = Path(f"/tmp/sent_{page_id}.jpg")
+                    dest.write_bytes(raw)
+                    logger.info("saved query jpeg %s", dest)
+                    if max(image.size) < MIN_QUERY_LONG_EDGE:
+                        raise ExtractError(
+                            f"page {page_id} downscaled to {image.size}, refusing to send"
+                        )
+
+
 async def extract_image(
     client: httpx.AsyncClient,
     image_path: str,
@@ -109,6 +230,9 @@ async def extract_image(
     max_tokens: int,
     examples: ExampleList | None = None,
     trace_page: int | None = None,
+    instructions: str | None = None,
+    page_id: int | None = None,
+    guard_query: bool = False,
 ) -> dict:
     opened = Image.open(image_path)
     image = opened
@@ -133,6 +257,9 @@ async def extract_image(
         if image is not opened:
             image.close()
 
+    template, field_notes = separate_field_notes(template)
+    extra = (instructions or "").strip()
+    instructions = " ".join(part for part in (field_notes, extra) if part) or None
     messages: list[dict] = []
     for example in examples or []:
         messages.append({
@@ -152,9 +279,17 @@ async def extract_image(
         "temperature": 0,
         "max_tokens": max_tokens,
         "messages": messages,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "extract",
+                "schema": template_to_json_schema(template),
+            },
+        },
         "chat_template_kwargs": {
             "template": json.dumps(template, ensure_ascii=False),
             "enable_thinking": False,
+            **({"instructions": instructions} if instructions else {}),
         },
     }
     if trace_page is not None:
@@ -167,10 +302,17 @@ async def extract_image(
             fingerprint["message_count"],
             ",".join(fingerprint["message_roles"]),
         )
+    _log_payload_images(messages, page_id if page_id is not None else trace_page, guard_query=guard_query)
     response = await client.post(settings.vllm_chat_url, json=body)
     if response.status_code >= 400:
         raise ExtractError(f"vLLM {response.status_code}: {response.text[:500]}")
     payload = response.json()
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    logger.info(
+        "page=%s prompt_tokens=%s",
+        page_id if page_id is not None else trace_page,
+        (usage or {}).get("prompt_tokens"),
+    )
     try:
         content = payload["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError) as exc:

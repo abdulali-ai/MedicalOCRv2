@@ -25,13 +25,13 @@
     "source": "Claim 5/img10152025_0013.jpg"
   },
   {
-    "file": "claim5_0015.jpg",
-    "document_type": "other_document",
-    "source": "Claim 5/img10152025_0015.jpg"
-  },
-  {
     "file": "outpatient_invoice.jpg",
     "document_type": "outpatient_invoice",
     "source": "tests/safwa/4_page_1 (1).jpg"
+  },
+  {
+    "file": "outpatient_invoice_1.jpg",
+    "document_type": "outpatient_invoice",
+    "source": "tests/safwa/1_page_3.jpg"
   }
 ]

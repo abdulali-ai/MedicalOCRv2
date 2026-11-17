@@ -24,6 +24,64 @@ def rotate_to_upright(image: np.ndarray, predicted_angle: str) -> np.ndarray:
     return image
 
 
+def skew_angle(gray: np.ndarray, max_deg: float = 10, step: float = 0.2) -> float:
+    """Angle, in degrees, that makes text rows horizontal.
+
+    Search a downscaled binarized copy. The projection-profile variance peaks
+    when the row sums have the sharpest peaks and valleys.
+    """
+    height, width = gray.shape
+    margin_y, margin_x = int(height * 0.04), int(width * 0.04)
+    cropped = gray[margin_y:height - margin_y, margin_x:width - margin_x]
+    if max(cropped.shape) > 2000:
+        cropped = cv2.resize(cropped, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+    binary = cv2.threshold(cropped, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    crop_h, crop_w = binary.shape
+    best, best_score = 0.0, -1.0
+    for angle in np.arange(-max_deg, max_deg + step, step):
+        matrix = cv2.getRotationMatrix2D((crop_w / 2, crop_h / 2), float(angle), 1.0)
+        rotated = cv2.warpAffine(binary, matrix, (crop_w, crop_h), flags=cv2.INTER_NEAREST)
+        score = float(np.var(rotated.sum(axis=1, dtype=np.float64)))
+        if score > best_score:
+            best, best_score = float(angle), score
+    return best
+
+
+def _rotation_canvas(width: int, height: int, angle: float) -> tuple[np.ndarray, int, int]:
+    """Rotation that keeps the whole page inside the frame.
+
+    The extra margin is white. Rotating inside the original size clips the corners.
+    """
+    matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1.0)
+    radians = np.deg2rad(abs(angle))
+    cosine, sine = float(np.cos(radians)), float(np.sin(radians))
+    bound_w = int(np.ceil(height * sine + width * cosine))
+    bound_h = int(np.ceil(height * cosine + width * sine))
+    matrix[0, 2] += (bound_w - width) / 2
+    matrix[1, 2] += (bound_h - height) / 2
+    return matrix, bound_w, bound_h
+
+
+def deskew(image: np.ndarray, min_deg: float = 0.3) -> tuple[np.ndarray, float]:
+    """Rotate the full-resolution image once by the angle found on a downscaled copy.
+
+    Angles below min_deg are left alone so the interpolation does not blur the page.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    angle = skew_angle(gray)
+    if abs(angle) < min_deg:
+        return image, angle
+    height, width = gray.shape
+    matrix, bound_w, bound_h = _rotation_canvas(width, height, angle)
+    corrected = cv2.warpAffine(
+        image, matrix, (bound_w, bound_h),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(255, 255, 255),
+    )
+    return corrected, angle
+
+
 def top_half(image: np.ndarray) -> np.ndarray:
     height = image.shape[0]
     if height < 2:

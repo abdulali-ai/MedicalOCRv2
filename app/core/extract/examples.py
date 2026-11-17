@@ -45,6 +45,7 @@ class InvoiceExample:
     encoded: str
     output: str
     tokens: int
+    file: str = ""
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,13 @@ def example_image_tokens(template_name: str = "janzour") -> int:
     return sum(item.tokens for item in classifier_examples(template_name))
 
 
-def invoice_examples(template_name: str = "janzour") -> list[InvoiceExample]:
+def invoice_examples(template_name: str = "janzour", stage: str | None = None) -> list[InvoiceExample]:
+    """Few-shots for one invoice stage.
+
+    Outpatient files are sent only with an outpatient page. Every other invoice
+    stage gets the remaining examples, so an inpatient page is not shown the
+    outpatient bills.
+    """
     name = template_name or "janzour"
     if name not in _INVOICE_CACHE:
         _INVOICE_CACHE[name] = _load_filled_examples(
@@ -79,7 +86,12 @@ def invoice_examples(template_name: str = "janzour") -> list[InvoiceExample]:
             InvoiceExample,
             allow_empty=True,
         )
-    return _INVOICE_CACHE[name]
+    items = _INVOICE_CACHE[name]
+    if stage == "outpatient_invoice":
+        return [item for item in items if item.file.startswith("outpatient")]
+    if stage in {"invoice", "inpatient_invoice"}:
+        return [item for item in items if not item.file.startswith("outpatient")]
+    return items
 
 
 def invoice_example_tokens(template_name: str = "janzour") -> int:
@@ -152,5 +164,8 @@ def _load_filled_examples(directory: Path, kind: str, cls, *, allow_empty: bool 
         with Image.open(image_path) as image:
             tokens = image_token_count(image.width, image.height)
         encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
-        loaded.append(cls(encoded=encoded, output=output, tokens=tokens))
+        kwargs = {"encoded": encoded, "output": output, "tokens": tokens}
+        if "file" in getattr(cls, "__dataclass_fields__", {}):
+            kwargs["file"] = item["file"]
+        loaded.append(cls(**kwargs))
     return loaded
