@@ -1,11 +1,12 @@
 """Health check endpoints."""
-from datetime import datetime
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request
-import redis
+from fastapi import APIRouter, Depends, Request
+import redis.exceptions
 
-from app.config import settings
 from app.core.extract.templates import TemplateError, load_registry
+from app.core.notifications import get_async_redis
+from app.core.security import require_auth
 from app.models.schemas import HealthResponse
 
 
@@ -16,10 +17,9 @@ router = APIRouter(prefix="/api/health", tags=["Health"])
 async def health_check(request: Request):
     redis_ok = False
     try:
-        client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
-        redis_ok = bool(client.ping())
-        client.close()
-    except redis.RedisError:
+        client = get_async_redis(request.app)
+        redis_ok = bool(await client.ping())
+    except (redis.exceptions.RedisError, OSError):
         redis_ok = False
 
     registry = getattr(request.app.state, "templates", None)
@@ -27,13 +27,13 @@ async def health_check(request: Request):
 
     return HealthResponse(
         status="healthy" if redis_ok and templates_loaded else "degraded",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         redis_ok=redis_ok,
         templates_loaded=templates_loaded,
     )
 
 
-@router.get("/templates")
+@router.get("/templates", dependencies=[Depends(require_auth)])
 async def check_templates():
     try:
         registry = load_registry()

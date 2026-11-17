@@ -4,7 +4,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz
 
 
 def extract_images_from_pdf(pdf_path: str, output_dir: str) -> list[str]:

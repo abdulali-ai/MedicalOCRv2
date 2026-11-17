@@ -35,13 +35,20 @@ class Settings(BaseSettings):
     EXTRACT_ATTEMPTS: int = 3
     VLLM_TIMEOUT_SECONDS: float = 600.0
 
-    # Authentication (unmounted)
+    # Authentication
+    AUTH_ENABLED: bool = True
+    API_KEY: str = "ocr-dev-api-key-change-in-production"
     JWT_SECRET_KEY: str = "your-secret-key-here-change-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 60
 
-    # CORS
-    CORS_ORIGINS: str = '["*"]'
+    # CORS (restricted to explicit origins by default)
+    CORS_ORIGINS: str = '["http://localhost:3000","http://localhost:5000","http://127.0.0.1:5000"]'
+
+    # Upload validation limits
+    MAX_UPLOAD_SIZE_MB: int = 50
+    MAX_PDF_PAGES: int = 100
+    MAX_BATCH_FILES: int = 50
 
     # Application
     APP_TITLE: str = "Document Batch Processor"
@@ -75,8 +82,12 @@ class Settings(BaseSettings):
         try:
             parsed = json.loads(self.CORS_ORIGINS)
         except json.JSONDecodeError:
-            return ["*"]
-        return parsed if isinstance(parsed, list) else ["*"]
+            return ["http://localhost:3000"]
+        return [str(origin) for origin in parsed] if isinstance(parsed, list) else ["http://localhost:3000"]
+
+    @property
+    def max_upload_bytes(self) -> int:
+        return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
     @property
     def vllm_chat_url(self) -> str:

@@ -67,6 +67,14 @@ def batch_key(batch_id: str) -> str:
     return f"batch_count:{batch_id}"
 
 
+def batch_meta_key(batch_id: str) -> str:
+    return f"batch:{batch_id}"
+
+
+def batch_tasks_key(batch_id: str) -> str:
+    return f"batch:{batch_id}:tasks"
+
+
 def result_path(task_id: str) -> str:
     from pathlib import Path
     return str(Path(settings.STORAGE_DIR) / "results" / f"{task_id}.json")
@@ -157,7 +165,7 @@ class JobStore:
         first = self.redis.hsetnx(job_key(task_id), "failed_once", "1")
         if not first:
             return
-        self.redis.hset(job_key(task_id), "status", "error")
+        self.redis.hset(job_key(task_id), mapping={"status": "error", "error": message})
         publish_update(task_id, {
             "task_id": task_id,
             "filename": job.get("filename"),
@@ -264,6 +272,7 @@ class JobStore:
         if remaining is False or remaining is None:
             return
         if int(remaining) <= 0:
+            self.redis.hset(batch_meta_key(batch_id), "status", "completed")
             publish_update(task_id, {
                 "event": "batch_completed",
                 "batch_id": batch_id,

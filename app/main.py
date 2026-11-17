@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from redis import asyncio as aioredis
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,10 +21,17 @@ from app.core.extract.templates import load_registry
 async def lifespan(app: FastAPI):
     registry = load_registry()
     app.state.templates = registry
+    app.state.redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     print(f"Starting {settings.APP_TITLE} v{settings.APP_VERSION}")
     print(f"Templates: {', '.join(registry.names)}")
-    yield
-    print("Shutting down...")
+    try:
+        yield
+    finally:
+        print("Shutting down...")
+        redis_client = getattr(app.state, "redis", None)
+        if redis_client is not None:
+            await redis_client.aclose()
+            app.state.redis = None
 
 
 app = FastAPI(
@@ -32,12 +40,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = settings.cors_origins_list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials="*" not in _cors_origins,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 
 app.include_router(health.router)

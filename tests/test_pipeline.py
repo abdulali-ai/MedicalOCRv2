@@ -669,15 +669,257 @@ class BudgetTests(unittest.TestCase):
             settings.VLLM_MAX_MODEL_LEN = original
 
 
+class _FakePubSub:
+    def __init__(self):
+        self.channels = []
+
+    async def subscribe(self, *channels):
+        self.channels.extend(channels)
+
+    async def listen(self):
+        if False:
+            yield {}
+
+    async def aclose(self):
+        pass
+
+
+class _FakeAsyncRedis:
+    def __init__(self):
+        self.hashes = {}
+        self.kv = {}
+        self.lists = {}
+        self.streams = {}
+        self.published = []
+
+    async def ping(self):
+        return True
+
+    async def hset(self, key, field=None, value=None, mapping=None):
+        bucket = self.hashes.setdefault(key, {})
+        if mapping:
+            for k, v in mapping.items():
+                bucket[str(k)] = str(v)
+        if field is not None:
+            bucket[str(field)] = str(value)
+        return 1
+
+    async def hgetall(self, key):
+        return dict(self.hashes.get(key, {}))
+
+    async def hlen(self, key):
+        return len(self.hashes.get(key, {}))
+
+    async def set(self, key, value, **kwargs):
+        self.kv[key] = str(value)
+        return True
+
+    async def get(self, key):
+        return self.kv.get(key)
+
+    async def rpush(self, key, *values):
+        lst = self.lists.setdefault(key, [])
+        lst.extend(str(v) for v in values)
+        return len(lst)
+
+    async def lrange(self, key, start, end):
+        lst = self.lists.get(key, [])
+        if end == -1:
+            return list(lst[start:])
+        return list(lst[start : end + 1])
+
+    async def xadd(self, stream, fields, **kwargs):
+        items = self.streams.setdefault(stream, [])
+        msg_id = f"{len(items) + 1}-0"
+        items.append((msg_id, dict(fields)))
+        return msg_id
+
+    async def publish(self, channel, message):
+        self.published.append((channel, message))
+        return 1
+
+    def pubsub(self):
+        return _FakePubSub()
+
+    async def aclose(self):
+        pass
+
+
+def _make_valid_pdf_bytes(pages: int = 1) -> bytes:
+    try:
+        import pymupdf as fitz
+    except ImportError:
+        import fitz
+
+    doc = fitz.open()
+    for i in range(pages):
+        page = doc.new_page(width=595, height=842)
+        page.insert_text((72, 72), f"Test page {i + 1}")
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
 class ApiTests(unittest.TestCase):
+    def setUp(self):
+        self.fake_redis = _FakeAsyncRedis()
+        app.state.redis = self.fake_redis
+        self.auth_headers = {"X-API-Key": settings.API_KEY}
+
+    def test_unauthenticated_requests_are_rejected(self):
+        client = TestClient(app)
+        self.assertEqual(
+            client.post(
+                "/process-pdf/",
+                data={"template": "janzour"},
+                files={"file": ("claim.pdf", b"%PDF-1.4", "application/pdf")},
+            ).status_code,
+            401,
+        )
+        self.assertEqual(client.get("/api/jobs/task-123").status_code, 401)
+        self.assertEqual(client.get("/api/batches/batch-123").status_code, 401)
+
     def test_unknown_template_is_rejected(self):
         client = TestClient(app)
         response = client.post(
             "/process-pdf/",
+            headers=self.auth_headers,
             data={"template": "missing"},
             files={"file": ("claim.pdf", b"%PDF-1.4", "application/pdf")},
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_jwt_token_exchange_and_bearer_auth(self):
+        client = TestClient(app)
+        token_resp = client.post("/api/auth/token", headers=self.auth_headers)
+        self.assertEqual(token_resp.status_code, 200)
+        token = token_resp.json()["access_token"]
+        bearer_headers = {"Authorization": f"Bearer {token}"}
+
+        tmpl_resp = client.get("/api/health/templates", headers=bearer_headers)
+        self.assertEqual(tmpl_resp.status_code, 200)
+        self.assertTrue(tmpl_resp.json()["ok"])
+
+        bad_resp = client.get("/api/health/templates", headers={"Authorization": f"Bearer {token}tampered"})
+        self.assertEqual(bad_resp.status_code, 401)
+
+    def test_upload_validation_rejects_invalid_headers_pages_and_size(self):
+        client = TestClient(app)
+        # Missing %PDF- magic header
+        bad_magic = client.post(
+            "/process-pdf/",
+            headers=self.auth_headers,
+            data={"template": "janzour"},
+            files={"file": ("claim.pdf", b"NOT-A-PDF", "application/pdf")},
+        )
+        self.assertEqual(bad_magic.status_code, 400)
+        self.assertIn("missing %PDF- header", bad_magic.json()["detail"])
+
+        # Corrupted PDF body
+        corrupted = client.post(
+            "/process-pdf/",
+            headers=self.auth_headers,
+            data={"template": "janzour"},
+            files={"file": ("claim.pdf", b"%PDF-1.4 corrupted body", "application/pdf")},
+        )
+        self.assertEqual(corrupted.status_code, 400)
+
+        # Page count limit
+        orig_pages = settings.MAX_PDF_PAGES
+        try:
+            settings.MAX_PDF_PAGES = 1
+            two_page_pdf = _make_valid_pdf_bytes(pages=2)
+            too_many_pages = client.post(
+                "/process-pdf/",
+                headers=self.auth_headers,
+                data={"template": "janzour"},
+                files={"file": ("claim.pdf", two_page_pdf, "application/pdf")},
+            )
+            self.assertEqual(too_many_pages.status_code, 400)
+            self.assertIn("exceeding the maximum", too_many_pages.json()["detail"])
+        finally:
+            settings.MAX_PDF_PAGES = orig_pages
+
+    def test_job_and_batch_status_endpoints(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            orig_storage = settings.STORAGE_DIR
+            settings.STORAGE_DIR = tmpdir
+            try:
+                client = TestClient(app)
+                valid_pdf = _make_valid_pdf_bytes(pages=2)
+                upload_resp = client.post(
+                    "/process-pdf/",
+                    headers=self.auth_headers,
+                    data={"template": "janzour"},
+                    files={"file": ("claim.pdf", valid_pdf, "application/pdf")},
+                )
+                self.assertEqual(upload_resp.status_code, 200)
+                task_id = upload_resp.json()["task_id"]
+                self.assertEqual(upload_resp.json()["page_count"], 2)
+
+                status_resp = client.get(f"/api/jobs/{task_id}", headers=self.auth_headers)
+                self.assertEqual(status_resp.status_code, 200)
+                self.assertEqual(status_resp.json()["status"], "queued")
+                self.assertEqual(status_resp.json()["page_count"], 2)
+
+                # Simulate completed result on disk
+                results_dir = Path(tmpdir) / "results"
+                results_dir.mkdir(parents=True, exist_ok=True)
+                result_file = results_dir / f"{task_id}.json"
+                result_payload = {
+                    "task_id": task_id,
+                    "filename": "claim.pdf",
+                    "template": "janzour",
+                    "invoices": [{"pages": [1, 2]}],
+                }
+                result_file.write_text(json.dumps(result_payload), encoding="utf-8")
+                self.fake_redis.hashes[f"job:{task_id}"]["status"] = "completed"
+                self.fake_redis.hashes[f"job:{task_id}"]["result_path"] = str(result_file)
+
+                done_resp = client.get(f"/api/jobs/{task_id}", headers=self.auth_headers)
+                self.assertEqual(done_resp.status_code, 200)
+                self.assertEqual(done_resp.json()["status"], "completed")
+                self.assertEqual(done_resp.json()["result"]["invoices"], [{"pages": [1, 2]}])
+
+                # Batch upload and status check
+                batch_resp = client.post(
+                    "/batch-process-pdf/",
+                    headers=self.auth_headers,
+                    data={"template": "janzour"},
+                    files=[
+                        ("files", ("a.pdf", _make_valid_pdf_bytes(1), "application/pdf")),
+                        ("files", ("b.pdf", _make_valid_pdf_bytes(1), "application/pdf")),
+                    ],
+                )
+                self.assertEqual(batch_resp.status_code, 200)
+                batch_items = batch_resp.json()
+                self.assertEqual(len(batch_items), 2)
+                batch_id = batch_items[0]["batch_id"]
+
+                bstatus_resp = client.get(f"/api/batches/{batch_id}", headers=self.auth_headers)
+                self.assertEqual(bstatus_resp.status_code, 200)
+                bdata = bstatus_resp.json()
+                self.assertEqual(bdata["batch_id"], batch_id)
+                self.assertEqual(bdata["total_jobs"], 2)
+                self.assertEqual(bdata["pending_jobs"], 2)
+            finally:
+                settings.STORAGE_DIR = orig_storage
+
+    def test_websocket_requires_auth_and_scope(self):
+        from starlette.websockets import WebSocketDisconnect
+
+        client = TestClient(app)
+        # Unauthenticated WebSocket is rejected with 1008
+        with self.assertRaises(WebSocketDisconnect) as ctx:
+            with client.websocket_connect("/ws/task-123"):
+                pass
+        self.assertEqual(ctx.exception.code, 1008)
+
+        # Authenticated but unscoped /ws is rejected with 1008
+        with self.assertRaises(WebSocketDisconnect) as ctx2:
+            with client.websocket_connect(f"/ws?api_key={settings.API_KEY}"):
+                pass
+        self.assertEqual(ctx2.exception.code, 1008)
 
 
 class ParseTests(unittest.TestCase):
