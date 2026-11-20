@@ -20,3 +20,4 @@ data:
   ORIENT_MODEL_PATH: /models/orientation_classifier/best.pt
   TASK_RESULT_EXPIRE_TIME: "259200"
   MERGE_LOCK_TTL_SECONDS: "120"
+  CORS_ORIGINS: '["*"]'

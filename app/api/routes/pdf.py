@@ -167,6 +167,7 @@ async def _enqueue(
     page_count: int = 0,
 ) -> None:
     created_at = time.time()
+    ttl = settings.TASK_RESULT_EXPIRE_TIME
     await redis.hset(
         job_key(task_id),
         mapping={
@@ -179,7 +180,13 @@ async def _enqueue(
             "created_at": str(created_at),
         },
     )
-    await redis.xadd(settings.STREAM_PDF, {"task_id": task_id})
+    await redis.expire(job_key(task_id), ttl)
+    await redis.xadd(
+        settings.STREAM_PDF,
+        {"task_id": task_id},
+        maxlen=settings.STREAM_MAXLEN,
+        approximate=True,
+    )
     await async_publish_update(
         redis,
         task_id,
@@ -349,8 +356,9 @@ async def batch_process_pdf(request: Request, template: str = Form(...), files: 
 
     batch_id = str(uuid.uuid4())
     created_at = time.time()
+    ttl = settings.TASK_RESULT_EXPIRE_TIME
     redis = get_async_redis(request.app)
-    await redis.set(batch_key(batch_id), len(staged))
+    await redis.set(batch_key(batch_id), len(staged), ex=ttl)
     await redis.hset(
         batch_meta_key(batch_id),
         mapping={
@@ -361,7 +369,9 @@ async def batch_process_pdf(request: Request, template: str = Form(...), files: 
             "created_at": str(created_at),
         },
     )
+    await redis.expire(batch_meta_key(batch_id), ttl)
     await redis.rpush(batch_tasks_key(batch_id), *[item[0] for item in staged])
+    await redis.expire(batch_tasks_key(batch_id), ttl)
 
     results = []
     for task_id, safe_name, file_path, page_count in staged:

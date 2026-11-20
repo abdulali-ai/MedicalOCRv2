@@ -1,4 +1,4 @@
-"""Dispatch NuExtract calls concurrently and merge a PDF when every page is terminal."""
+"""Dispatch NuExtract calls with bounded concurrency and merge a PDF when every page is terminal."""
 from __future__ import annotations
 
 import asyncio
@@ -30,7 +30,7 @@ MAX_TOKENS = {
 }
 
 
-async def _reclaim(client, stream: str, group: str, consumer: str):
+async def _reclaim(client, stream: str, group: str, consumer: str, count: int):
     try:
         return await client.xautoclaim(
             stream,
@@ -38,6 +38,7 @@ async def _reclaim(client, stream: str, group: str, consumer: str):
             consumer,
             min_idle_time=settings.STREAM_CLAIM_IDLE_MS,
             start_id="0-0",
+            count=max(1, count),
         )
     except redis.exceptions.ResponseError:
         return None
@@ -47,28 +48,51 @@ async def run() -> None:
     registry = load_registry()
     store = JobStore()
     store.ensure_group(settings.STREAM_EXTRACT, settings.GROUP_EXTRACT)
+    max_concurrency = max(1, int(settings.MAX_CONCURRENT_EXTRACTS))
+    semaphore = asyncio.Semaphore(max_concurrency)
     logger.info(
-        "Extract dispatcher model=%s max_model_len=%s mtp=off",
+        "Extract dispatcher model=%s max_model_len=%s max_concurrency=%s mtp=off",
         settings.VLLM_MODEL_NAME,
         settings.VLLM_MAX_MODEL_LEN,
+        max_concurrency,
     )
     async_redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     consumer = f"{socket.gethostname()}-{os.getpid()}"
     inflight: set[asyncio.Task] = set()
     timeout = httpx.Timeout(settings.VLLM_TIMEOUT_SECONDS)
-    limits = httpx.Limits(max_connections=None, max_keepalive_connections=None)
+    limits = httpx.Limits(
+        max_connections=max_concurrency * 2,
+        max_keepalive_connections=max_concurrency,
+    )
     async with httpx.AsyncClient(timeout=timeout, limits=limits) as http:
         while True:
-            claimed = await _reclaim(async_redis, settings.STREAM_EXTRACT, settings.GROUP_EXTRACT, consumer)
+            if len(inflight) >= max_concurrency:
+                done, _pending = await asyncio.wait(inflight, return_when=asyncio.FIRST_COMPLETED)
+                inflight.difference_update(done)
+
+            available = max(1, max_concurrency - len(inflight))
+            claimed = await _reclaim(
+                async_redis,
+                settings.STREAM_EXTRACT,
+                settings.GROUP_EXTRACT,
+                consumer,
+                count=available,
+            )
             if claimed:
                 _next, messages, *_rest = claimed
                 for message_id, fields in messages or []:
-                    _spawn(inflight, store, registry, http, async_redis, message_id, fields)
+                    _spawn(inflight, semaphore, store, registry, http, async_redis, message_id, fields)
+
+            available = max_concurrency - len(inflight)
+            if available <= 0:
+                continue
+
             try:
                 response = await async_redis.xreadgroup(
                     groupname=settings.GROUP_EXTRACT,
                     consumername=consumer,
                     streams={settings.STREAM_EXTRACT: ">"},
+                    count=available,
                     block=2000,
                 )
             except redis.TimeoutError:
@@ -80,29 +104,30 @@ async def run() -> None:
                 continue
             for _stream, messages in response:
                 for message_id, fields in messages:
-                    _spawn(inflight, store, registry, http, async_redis, message_id, fields)
+                    _spawn(inflight, semaphore, store, registry, http, async_redis, message_id, fields)
 
 
-def _spawn(inflight, store, registry, http, async_redis, message_id, fields) -> None:
+def _spawn(inflight, semaphore, store, registry, http, async_redis, message_id, fields) -> None:
     task = asyncio.create_task(
-        _process_and_ack(store, registry, http, async_redis, message_id, fields)
+        _process_and_ack(semaphore, store, registry, http, async_redis, message_id, fields)
     )
     inflight.add(task)
     task.add_done_callback(inflight.discard)
 
 
-async def _process_and_ack(store, registry, http, async_redis, message_id, fields) -> None:
-    try:
-        await process_message(store, registry, http, fields)
-        await async_redis.xack(settings.STREAM_EXTRACT, settings.GROUP_EXTRACT, message_id)
-    except Exception as exc:
-        logger.exception("Extract message %s failed before ack", message_id)
-        deliveries = await _deliveries(async_redis, message_id)
-        if deliveries >= settings.MAX_DELIVERIES:
-            task_id = (fields or {}).get("task_id")
-            if task_id:
-                await asyncio.to_thread(store.fail_job, task_id, f"extract failed: {exc}")
+async def _process_and_ack(semaphore, store, registry, http, async_redis, message_id, fields) -> None:
+    async with semaphore:
+        try:
+            await process_message(store, registry, http, fields)
             await async_redis.xack(settings.STREAM_EXTRACT, settings.GROUP_EXTRACT, message_id)
+        except Exception as exc:
+            logger.exception("Extract message %s failed before ack", message_id)
+            deliveries = await _deliveries(async_redis, message_id)
+            if deliveries >= settings.MAX_DELIVERIES:
+                task_id = (fields or {}).get("task_id")
+                if task_id:
+                    await asyncio.to_thread(store.fail_job, task_id, f"extract failed: {exc}")
+                await async_redis.xack(settings.STREAM_EXTRACT, settings.GROUP_EXTRACT, message_id)
 
 
 async def _deliveries(client, message_id: str) -> int:
@@ -143,14 +168,25 @@ async def process_message(store: JobStore, registry, http: httpx.AsyncClient, fi
     template = _template_for(stage, schema)
     last_error = None
     parsed = None
-    for _attempt in range(settings.EXTRACT_ATTEMPTS):
+    max_attempts = max(1, int(settings.EXTRACT_ATTEMPTS))
+    base_backoff = max(0.0, float(settings.EXTRACT_RETRY_BACKOFF_SECONDS))
+    for attempt in range(max_attempts):
         try:
             parsed = await _call_extract(http, fields, job, stage, template)
             last_error = None
             break
         except (ExtractError, httpx.HTTPError, OSError) as exc:
             last_error = exc
-            logger.warning("page %s stage %s attempt failed: %s", page, stage, exc)
+            logger.warning(
+                "page %s stage %s attempt %s/%s failed: %s",
+                page,
+                stage,
+                attempt + 1,
+                max_attempts,
+                exc,
+            )
+            if attempt + 1 < max_attempts and base_backoff > 0:
+                await asyncio.sleep(base_backoff * (2 ** attempt))
     if last_error is not None:
         await asyncio.to_thread(_finish_error, store, task_id, page, fields, str(last_error))
         return
@@ -172,6 +208,8 @@ async def process_message(store: JobStore, registry, http: httpx.AsyncClient, fi
         template_name = fields.get("template_name") or job.get("template") or "janzour"
         if invoice_is_empty(data):
             logger.warning("page %s stage %s returned an empty invoice; retrying", page, stage)
+            if base_backoff > 0:
+                await asyncio.sleep(base_backoff)
             try:
                 data = await _call_extract(http, fields, job, stage, template) or {}
             except (ExtractError, httpx.HTTPError, OSError) as exc:
@@ -242,7 +280,6 @@ async def _call_extract(http, fields: dict, job: dict, stage: str, template: dic
         template,
         _max_tokens_for(stage),
         examples=examples,
-        trace_page=page if page == 7 and _is_invoice_stage(stage) else None,
         instructions=instructions,
         page_id=page,
         guard_query=_is_invoice_stage(stage),

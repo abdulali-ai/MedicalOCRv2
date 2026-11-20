@@ -258,9 +258,70 @@ def _is_inpatient(document_type) -> bool:
     return document_type in _INPATIENT_TYPES
 
 
+# Masarra ERP codes 321 (InPatient Medicine) and 322 (Pharmacy Medicine) always
+# belong under أدوية ومستلزمات on inpatient invoices.
+_MASSARA_MEDICINE_CODES = frozenset({"321", "322"})
+_MASSARA_MEDICINE_SECTION = "أدوية ومستلزمات"
+
+
+def _split_massara_medicine_sections(sections: list[dict]) -> list[dict]:
+    """Move Masarra inpatient medicine rows (codes 321/322) out of non-medicine sections."""
+    medicine_key = section_key(_MASSARA_MEDICINE_SECTION)
+    out: list[dict] = []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        items = section.get("items") or []
+        if same_section(section.get("section_name"), _MASSARA_MEDICINE_SECTION):
+            out.append(section)
+            continue
+        kept: list[dict] = []
+        moved: list[dict] = []
+        for item in items:
+            code = _norm(item.get("code")) if isinstance(item, dict) else ""
+            if code in _MASSARA_MEDICINE_CODES:
+                moved.append(item)
+            else:
+                kept.append(item)
+        if not moved:
+            out.append(section)
+            continue
+        if kept:
+            trimmed = copy.deepcopy(section)
+            trimmed["items"] = kept
+            out.append(trimmed)
+        if out and section_key(out[-1].get("section_name")) == medicine_key:
+            out[-1]["items"] = (out[-1].get("items") or []) + moved
+        else:
+            out.append({
+                "section_name": _MASSARA_MEDICINE_SECTION,
+                "items": moved,
+                "section_total": {"net_price": 0.0},
+            })
+    return out
+
+
+def _recompute_section_total(section: dict) -> None:
+    """Recompute section_total.net_price from item net_prices when items carry numeric prices."""
+    items = section.get("items") or []
+    prices = [
+        float(item["net_price"])
+        for item in items
+        if isinstance(item, dict) and isinstance(item.get("net_price"), (int, float))
+    ]
+    if not prices:
+        return
+    total_block = section.get("section_total")
+    if isinstance(total_block, dict) and set(total_block) <= {"net_price"}:
+        section["section_total"] = {"net_price": round(sum(prices), 3)}
+
+
 def _append_sections(doc, sections, *, cross_page: bool = False, blank_continues: bool = False):
     for index, section in enumerate(sections):
         if not isinstance(section, dict):
+            continue
+        items = section.get("items") or []
+        if not items:
             continue
         section = copy.deepcopy(section)
         section["section_name"] = clean_section_name(section.get("section_name"))
@@ -323,6 +384,12 @@ def merge_pages(pages, template: str | None = None):
     merged = []
     for doc in docs.values():
         kind = doc.pop("_document_type", None)
+        if template == "massara" and _is_inpatient(kind):
+            doc["sections"] = _split_massara_medicine_sections(doc.get("sections") or [])
+        if template in FILE_INVOICE_TEMPLATES:
+            for section in doc.get("sections") or []:
+                if isinstance(section, dict):
+                    _recompute_section_total(section)
         if template == "safwa" and kind:
             doc["document_type"] = kind
         merged.append(doc)

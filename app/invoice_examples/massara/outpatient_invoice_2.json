@@ -3,15 +3,15 @@
   "document_title": "فاتورة نهائية",
   "patient": {
     "file_number": "1105839",
-    "name": "",
-    "company": "البشير محمد عبدالغفار",
+    "name": "البشير محمد عبدالغفار",
+    "company": null,
     "organization": "هيئة الرقابة الإدارية",
-    "employee_number": "",
-    "relationship": ""
+    "employee_number": null,
+    "relationship": null
   },
   "stay": {
-    "admission_date": "",
-    "discharge_date": ""
+    "admission_date": null,
+    "discharge_date": null
   },
   "receipt": {
     "receipt_number": "1032995",
@@ -19,14 +19,14 @@
   },
   "sections": [
     {
-      "section_name": "",
+      "section_name": null,
       "items": [
         {
           "code": "32101002677",
-          "description": "",
+          "description": null,
           "english_description": "OMISEC 40MH 10VIAL",
-          "date": "",
-          "time": "",
+          "date": null,
+          "time": null,
           "quantity": 1,
           "unit_price": 18.6,
           "net_price": 18.6

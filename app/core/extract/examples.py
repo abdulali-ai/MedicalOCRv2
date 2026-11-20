@@ -94,9 +94,9 @@ def invoice_examples(template_name: str = "janzour", stage: str | None = None) -
     return items
 
 
-def invoice_example_tokens(template_name: str = "janzour") -> int:
+def invoice_example_tokens(template_name: str = "janzour", stage: str | None = None) -> int:
     """Image tokens plus a conservative count of the example JSON."""
-    return sum(item.tokens + (len(item.output) // 2) for item in invoice_examples(template_name))
+    return sum(item.tokens + (len(item.output) // 2) for item in invoice_examples(template_name, stage))
 
 
 def id_card_examples(template_name: str = "janzour") -> list[IdCardExample]:

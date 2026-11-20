@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     MAX_TOKENS_ID_CARD: int = 1024
     MAX_TOKENS_INVOICE: int = 8192
     EXTRACT_ATTEMPTS: int = 3
+    EXTRACT_RETRY_BACKOFF_SECONDS: float = 1.0
+    MAX_CONCURRENT_EXTRACTS: int = 8
     VLLM_TIMEOUT_SECONDS: float = 600.0
 
     # Authentication
@@ -61,6 +63,7 @@ class Settings(BaseSettings):
     TASK_RESULT_EXPIRE_TIME: int = 72 * 3600
     MERGE_LOCK_TTL_SECONDS: int = 120
     STREAM_CLAIM_IDLE_MS: int = 60_000
+    STREAM_MAXLEN: int = 10_000
     MAX_DELIVERIES: int = 5
 
     # Vision

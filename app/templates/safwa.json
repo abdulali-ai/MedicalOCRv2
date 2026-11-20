@@ -5,7 +5,7 @@
       "outpatient_invoice",
       "other_document"
     ],
-    "instructions": "If the title at the top contains فاتورة رقم or إيصال رقم followed by a number, choose outpatient_invoice. If the title is كشف تفاصيل الخدمات and has no invoice number, choose inpatient_invoice."
+    "instructions": "If the title at the top contains فاتورة رقم, إيصال رقم, or إيصال تفصيلي رقم followed by a number, choose outpatient_invoice. If the title is كشف تفاصيل الخدمات and has no invoice number, choose inpatient_invoice. Classify every other type of image that is not like the invoices in the examples (such as وصفة طبية, prescriptions, lab results, or medical forms) as other_document."
   },
   "invoice": {
     "instructions": "Output every printed table row. Keep consecutive rows that repeat the same code, time, and price as separate items. Do not merge them.",

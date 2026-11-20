@@ -24,10 +24,16 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: /data
+            - name: app-code
+              mountPath: /app/app
       volumes:
         - name: storage
           persistentVolumeClaim:
             claimName: ocr-storage
+        - name: app-code
+          hostPath:
+            path: /home/utec/ocr/app
+            type: Directory
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -55,10 +61,16 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: /data
+            - name: app-code
+              mountPath: /app/app
       volumes:
         - name: storage
           persistentVolumeClaim:
             claimName: ocr-storage
+        - name: app-code
+          hostPath:
+            path: /home/utec/ocr/app
+            type: Directory
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -86,10 +98,16 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: /data
+            - name: app-code
+              mountPath: /app/app
       volumes:
         - name: storage
           persistentVolumeClaim:
             claimName: ocr-storage
+        - name: app-code
+          hostPath:
+            path: /home/utec/ocr/app
+            type: Directory
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -114,7 +132,13 @@ spec:
               volumeMounts:
                 - name: storage
                   mountPath: /data
+                - name: app-code
+                  mountPath: /app/app
           volumes:
             - name: storage
               persistentVolumeClaim:
                 claimName: ocr-storage
+            - name: app-code
+              hostPath:
+                path: /home/utec/ocr/app
+                type: Directory
