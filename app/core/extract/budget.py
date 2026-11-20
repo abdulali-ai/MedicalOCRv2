@@ -24,7 +24,7 @@ class ContextOverflow(RuntimeError):
 # PDF pages are rendered at 300 DPI. The files dropped on the extract worker
 # do not carry a DPI tag, so a missing tag means that render resolution.
 RENDER_DPI = 300
-VLLM_IMAGE_DPI = 200
+VLLM_IMAGE_DPI = 250
 
 
 def image_dpi(image: Image.Image) -> float | None:

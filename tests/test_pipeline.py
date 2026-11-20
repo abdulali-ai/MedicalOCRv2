@@ -71,7 +71,7 @@ class RegistryTests(unittest.TestCase):
         )
         self.assertEqual(
             registry.get("safwa")["classify"]["instructions"],
-            "If the title at the top contains فاتورة رقم or إيصال رقم followed by a number, choose outpatient_invoice. If the title is كشف تفاصيل الخدمات and has no invoice number, choose inpatient_invoice.",
+            "If the title at the top contains فاتورة رقم, إيصال رقم, or إيصال تفصيلي رقم followed by a number, choose outpatient_invoice. If the title is كشف تفاصيل الخدمات and has no invoice number, choose inpatient_invoice. Classify every other type of image that is not like the invoices in the examples (such as وصفة طبية, prescriptions, lab results, or medical forms) as other_document.",
         )
         self.assertNotIn("instructions", registry.get("massara")["classify"])
         invoice = registry.get("janzour")["invoice"]
@@ -98,7 +98,8 @@ class RegistryTests(unittest.TestCase):
         self.assertIsNone(invoice["summary"]["total"])
         self.assertNotIn("doctor_invoice", registry.get("massara"))
         id_card = registry.get("massara")["id_card"]
-        self.assertEqual(id_card, registry.get("janzour")["id_card"])
+        self.assertIsNone(id_card["beneficiary_name"])
+        self.assertEqual(set(id_card), set(registry.get("janzour")["id_card"]))
         outpatient = registry.get("massara")["outpatient_invoice"]
         self.assertEqual(outpatient["summary"]["total"], 0.0)
         self.assertNotIn("specialize", outpatient["sections"][0]["items"][0])
@@ -121,11 +122,17 @@ class RegistryTests(unittest.TestCase):
         massara_invoice = json.loads(json.dumps(massara["invoice"]))
         self.assertEqual(
             massara_invoice.pop("instructions"),
-            "Write each section once. Do not copy a section or its rows into another section. Keep rows that share a code when the date or time differs.",
+            "Output every printed table row, even when stamped over or when consecutive rows repeat the same code, description, and price. Never skip or merge rows. Start a new section whenever a printed section header row appears in the table. Use null for section_name only for rows at the top of a continuation page before the first section header on that page. Do not invent section names not printed in the table, do not output empty sections, and do not copy a section or its rows into another section.",
         )
         self.assertEqual(musafat_invoice, massara_invoice)
         self.assertEqual(musafat["classify"], massara["classify"])
-        self.assertEqual(musafat["outpatient_invoice"], massara["outpatient_invoice"])
+        self.assertIsNone(outpatient["patient"]["relationship"])
+        self.assertIsNone(outpatient["stay"]["admission_date"])
+        self.assertIsNone(outpatient["stay"]["discharge_date"])
+        self.assertIsNone(outpatient["summary"]["paid"])
+        self.assertIsNone(outpatient["summary"]["remaining"])
+        self.assertIsNone(outpatient["sections"][0]["items"][0]["english_description"])
+        self.assertIn("barcode sticker", outpatient["instructions"])
         self.assertEqual(musafat["id_card"], massara["id_card"])
 
     def test_missing_key_is_rejected(self):
@@ -390,6 +397,95 @@ class MergeTests(unittest.TestCase):
             ["خدمات أخرى", "خدمات إيوائية", "", "عمليات جراحية"],
         )
 
+    def test_empty_sections_dropped_and_massara_section_totals_recomputed(self):
+        pages = [
+            {
+                "page": 1,
+                "document_type": "invoice",
+                "data": {
+                    "patient": {"file_number": "1105839"},
+                    "receipt": {"invoice_number": "754425"},
+                    "sections": [
+                        {
+                            "section_name": "تحاليل طبية",
+                            "items": [{"code": "A", "net_price": 15.0}, {"code": "B", "net_price": 24.0}],
+                            "section_total": {"net_price": 999.0},
+                        },
+                        {
+                            "section_name": "شكاوى و ملاحظات",
+                            "items": [],
+                            "section_total": {"net_price": 0.0},
+                        },
+                    ],
+                },
+            },
+            {
+                "page": 2,
+                "document_type": "invoice",
+                "data": {
+                    "patient": {"file_number": "1105839"},
+                    "receipt": {"invoice_number": "754425"},
+                    "sections": [
+                        {
+                            "section_name": None,
+                            "items": [{"code": "C", "net_price": 10.5}],
+                            "section_total": {"net_price": 500.0},
+                        },
+                    ],
+                },
+            },
+        ]
+        merged = merge_pages(pages, template="massara")
+        self.assertEqual(len(merged), 1)
+        sections = merged[0]["sections"]
+        self.assertEqual([s["section_name"] for s in sections], ["تحاليل طبية"])
+        self.assertEqual(sections[0]["section_total"]["net_price"], 49.5)
+
+    def test_massara_medicine_codes_split_from_inpatient_section(self):
+        pages = [
+            {
+                "page": 4,
+                "document_type": "invoice",
+                "data": {
+                    "patient": {"file_number": "1105839"},
+                    "receipt": {"invoice_number": "754425"},
+                    "sections": [
+                        {
+                            "section_name": "خدمات إيوائية",
+                            "items": [{"code": "316203", "net_price": 60.0}],
+                            "section_total": {"net_price": 60.0},
+                        }
+                    ],
+                },
+            },
+            {
+                "page": 5,
+                "document_type": "invoice",
+                "data": {
+                    "patient": {"file_number": "1105839"},
+                    "receipt": {"invoice_number": "754425"},
+                    "sections": [
+                        {
+                            "section_name": None,
+                            "items": [
+                                {"code": "316206", "net_price": 378.0},
+                                {"code": "321", "net_price": 1463.0},
+                                {"code": "322", "net_price": 815.0},
+                            ],
+                            "section_total": {"net_price": 2656.0},
+                        }
+                    ],
+                },
+            },
+        ]
+        merged = merge_pages(pages, template="massara")
+        sections = merged[0]["sections"]
+        self.assertEqual([s["section_name"] for s in sections], ["خدمات إيوائية", "أدوية ومستلزمات"])
+        self.assertEqual([i["code"] for i in sections[0]["items"]], ["316203", "316206"])
+        self.assertEqual(sections[0]["section_total"]["net_price"], 438.0)
+        self.assertEqual([i["code"] for i in sections[1]["items"]], ["321", "322"])
+        self.assertEqual(sections[1]["section_total"]["net_price"], 2278.0)
+
     def test_safwa_keeps_inpatient_and_outpatient_apart(self):
         patient = {"admission_no": "IP2500001615", "medical_no": "U2200036133"}
         pages = [
@@ -575,8 +671,8 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(output["user"], "kanz")
         self.assertEqual(len(output["sections"]), 2)
         invoice = load_registry().get("janzour")["invoice"]
-        page_w = round(2480 * 200 / 300)
-        page_h = round(3508 * 200 / 300)
+        page_w = round(2480 * 250 / 300)
+        page_h = round(3508 * 250 / 300)
         packed = (
             invoice_example_tokens("janzour")
             + image_token_count(page_w, page_h)
@@ -585,20 +681,33 @@ class BudgetTests(unittest.TestCase):
         )
         self.assertLessEqual(packed, settings.VLLM_MAX_MODEL_LEN)
         massara_invoices = invoice_examples("massara")
-        self.assertEqual(len(massara_invoices), 3)
+        self.assertEqual(len(massara_invoices), 4)
+        self.assertEqual(
+            [item.file for item in invoice_examples("massara", "invoice")],
+            ["inpatient_invoice.jpg", "inpatient_invoice_continuation.jpg"],
+        )
+        self.assertEqual(
+            [item.file for item in invoice_examples("massara", "outpatient_invoice")],
+            ["outpatient_invoice_1.jpg", "outpatient_invoice_2.jpg"],
+        )
+        self.assertEqual(
+            json.loads(massara_invoices[0].output)["sections"][0]["section_name"],
+            "خدمات أخرى",
+        )
         self.assertEqual(
             json.loads(massara_invoices[1].output)["patient"]["file_number"],
-            "1121128",
+            "450633",
         )
         self.assertEqual(
             json.loads(massara_invoices[2].output)["patient"]["file_number"],
-            "1105839",
+            "1121128",
         )
+        outpatient2 = json.loads(massara_invoices[3].output)
+        self.assertEqual(outpatient2["patient"]["file_number"], "1105839")
+        self.assertEqual(outpatient2["patient"]["name"], "البشير محمد عبدالغفار")
+        self.assertIsNone(outpatient2["patient"]["company"])
         musafat_invoices = invoice_examples("musafat")
-        self.assertEqual(
-            [item.output for item in musafat_invoices],
-            [item.output for item in massara_invoices],
-        )
+        self.assertEqual(len(musafat_invoices), 3)
         safwa_invoices = invoice_examples("safwa")
         self.assertEqual(safwa_invoices[0].output, examples[0].output)
         self.assertEqual(len(safwa_invoices), 3)
@@ -623,15 +732,16 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(second["patient"]["medical_no"], "U2200036133")
         self.assertEqual(second["sections"][0]["items"][0]["description"], "خدمات الإقامة والاعاشة")
         self.assertEqual(second["sections"][0]["section_total"]["net_price"], 5080.1)
-        self.assertEqual(second["user"], "CASHIER")
+        self.assertIsNone(second["user"])
         massara_invoice = load_registry().get("massara")["invoice"]
-        massara_packed = (
-            invoice_example_tokens("massara")
-            + image_token_count(page_w, page_h)
-            + template_token_count(massara_invoice)
-            + settings.MAX_TOKENS_INVOICE
-        )
-        self.assertLessEqual(massara_packed, settings.VLLM_MAX_MODEL_LEN)
+        for stage in ("invoice", "outpatient_invoice"):
+            massara_packed = (
+                invoice_example_tokens("massara", stage)
+                + image_token_count(page_w, page_h)
+                + template_token_count(massara_invoice)
+                + settings.MAX_TOKENS_INVOICE
+            )
+            self.assertLessEqual(massara_packed, settings.VLLM_MAX_MODEL_LEN)
 
     def test_id_card_example_matches_template(self):
         examples = id_card_examples("janzour")
@@ -649,9 +759,10 @@ class BudgetTests(unittest.TestCase):
         )
         self.assertEqual(id_card_examples("safwa"), [])
 
-    def test_dpi_above_200_is_reduced_to_200(self):
+    def test_dpi_above_250_is_reduced_to_250(self):
         image = Image.new("RGB", (300, 600), "white")
-        self.assertEqual(cap_image_dpi(image, 300).size, (200, 400))
+        self.assertEqual(cap_image_dpi(image, 300).size, (250, 500))
+        self.assertEqual(cap_image_dpi(image, 250).size, (300, 600))
         self.assertEqual(cap_image_dpi(image, 200).size, (300, 600))
         self.assertEqual(cap_image_dpi(image, 150).size, (300, 600))
 
@@ -691,8 +802,14 @@ class _FakeAsyncRedis:
         self.lists = {}
         self.streams = {}
         self.published = []
+        self.ttls = {}
+        self.xadd_kwargs = []
 
     async def ping(self):
+        return True
+
+    async def expire(self, key, seconds):
+        self.ttls[key] = int(seconds)
         return True
 
     async def hset(self, key, field=None, value=None, mapping=None):
@@ -712,6 +829,8 @@ class _FakeAsyncRedis:
 
     async def set(self, key, value, **kwargs):
         self.kv[key] = str(value)
+        if "ex" in kwargs and kwargs["ex"] is not None:
+            self.ttls[key] = int(kwargs["ex"])
         return True
 
     async def get(self, key):
@@ -732,6 +851,7 @@ class _FakeAsyncRedis:
         items = self.streams.setdefault(stream, [])
         msg_id = f"{len(items) + 1}-0"
         items.append((msg_id, dict(fields)))
+        self.xadd_kwargs.append((stream, dict(kwargs)))
         return msg_id
 
     async def publish(self, channel, message):
@@ -902,8 +1022,37 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(bdata["batch_id"], batch_id)
                 self.assertEqual(bdata["total_jobs"], 2)
                 self.assertEqual(bdata["pending_jobs"], 2)
+
+                # Phase 2: Verify Redis TTLs and stream maxlen trimming
+                self.assertEqual(self.fake_redis.ttls.get(f"job:{task_id}"), settings.TASK_RESULT_EXPIRE_TIME)
+                self.assertEqual(self.fake_redis.ttls.get(f"batch:{batch_id}"), settings.TASK_RESULT_EXPIRE_TIME)
+                self.assertEqual(self.fake_redis.ttls.get(f"batch:{batch_id}:tasks"), settings.TASK_RESULT_EXPIRE_TIME)
+                self.assertEqual(self.fake_redis.ttls.get(f"batch_count:{batch_id}"), settings.TASK_RESULT_EXPIRE_TIME)
+                self.assertTrue(
+                    all(
+                        kw.get("maxlen") == settings.STREAM_MAXLEN and kw.get("approximate") is True
+                        for _s, kw in self.fake_redis.xadd_kwargs
+                    )
+                )
             finally:
                 settings.STORAGE_DIR = orig_storage
+
+    def test_query_resolution_guard_does_not_write_tmp_files(self):
+        from app.core.extract.client import ExtractError, _prepare_encoded_query
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tiny_path = Path(tmpdir) / "tiny.png"
+            Image.new("RGB", (400, 600), "white").save(tiny_path)
+            with self.assertRaises(ExtractError):
+                _prepare_encoded_query(
+                    str(tiny_path),
+                    {"document_type": ["invoice"]},
+                    256,
+                    None,
+                    99999,
+                    True,
+                )
+            self.assertFalse(Path("/tmp/sent_99999.jpg").exists())
 
     def test_websocket_requires_auth_and_scope(self):
         from starlette.websockets import WebSocketDisconnect
@@ -934,6 +1083,18 @@ class ParseTests(unittest.TestCase):
             "hospital_name": None,
             "sections": [],
             "summary": {"total": 0, "paid": None, "remaining": ""},
+        }))
+        self.assertTrue(invoice_is_empty({
+            "hospital_name": "مستشفى الصفوة الدولي",
+            "document_title": "وصفة طبية",
+            "sections": [
+                {
+                    "section_name": "وصفة طبية",
+                    "items": [{"code": "IV AMOCLAN", "net_price": 0.0, "patient_share": 0.0, "payer_share": 0.0}],
+                    "section_total": {"net_price": 0.0},
+                }
+            ],
+            "summary": {"total": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0}},
         }))
         self.assertFalse(invoice_is_empty({
             "patient": {"file_number": "450633"},

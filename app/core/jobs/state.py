@@ -1,4 +1,4 @@
-"""Redis job state, streams, and idempotent page completion."""
+"""Redis job state, streams, TTL management, and idempotent page completion."""
 from __future__ import annotations
 
 import json
@@ -15,6 +15,9 @@ from app.core.notifications import publish_update
 
 COMPLETE_PAGE_LUA = """
 local created = redis.call('HSETNX', KEYS[1], ARGV[1], ARGV[2])
+if tonumber(ARGV[3]) and tonumber(ARGV[3]) > 0 then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
+end
 if created == 1 then
   return redis.call('DECR', KEYS[2])
 end
@@ -23,6 +26,9 @@ return -1
 
 STORE_CROP_LUA = """
 local created = redis.call('HSETNX', KEYS[1], ARGV[1], ARGV[2])
+if tonumber(ARGV[3]) and tonumber(ARGV[3]) > 0 then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3]))
+end
 local count = redis.call('HLEN', KEYS[1])
 local flat = redis.call('HGETALL', KEYS[1])
 return {created, count, flat}
@@ -102,19 +108,30 @@ class JobStore:
 
     def enqueue(self, stream: str, fields: dict[str, Any]) -> str:
         payload = {key: "" if value is None else str(value) for key, value in fields.items()}
-        return self.redis.xadd(stream, payload)
+        return self.redis.xadd(
+            stream,
+            payload,
+            maxlen=settings.STREAM_MAXLEN,
+            approximate=True,
+        )
 
     def read_job(self, task_id: str) -> dict[str, str]:
         return self.redis.hgetall(job_key(task_id)) or {}
 
     def set_pending_once(self, task_id: str, page_count: int) -> None:
-        self.redis.set(pending_key(task_id), page_count, nx=True)
+        ttl = settings.TASK_RESULT_EXPIRE_TIME
+        self.redis.set(pending_key(task_id), page_count, nx=True, ex=ttl)
         self.redis.hset(job_key(task_id), "page_count", page_count)
+        self.redis.expire(job_key(task_id), ttl)
 
     def complete_page(self, task_id: str, page: int, record: dict) -> bool:
         remaining = self._complete_page(
             keys=[pages_key(task_id), pending_key(task_id)],
-            args=[str(page), json.dumps(record, ensure_ascii=False)],
+            args=[
+                str(page),
+                json.dumps(record, ensure_ascii=False),
+                str(settings.TASK_RESULT_EXPIRE_TIME),
+            ],
         )
         self._after_completion(task_id, int(remaining))
         return int(remaining) != -1
@@ -128,9 +145,14 @@ class JobStore:
         expected: int,
         errors: list[dict],
     ) -> bool:
+        crop_k = crops_key(task_id, page)
         created, count, flat = self._store_crop(
-            keys=[crops_key(task_id, page)],
-            args=[str(crop_index), json.dumps(crop_record, ensure_ascii=False)],
+            keys=[crop_k],
+            args=[
+                str(crop_index),
+                json.dumps(crop_record, ensure_ascii=False),
+                str(settings.TASK_RESULT_EXPIRE_TIME),
+            ],
         )
         del created
         if int(count) < expected:
@@ -151,12 +173,15 @@ class JobStore:
                     "source": payload.get("source"),
                     "data": payload.get("data") or {},
                 })
-        return self.complete_page(task_id, page, {
+        completed = self.complete_page(task_id, page, {
             "kind": "id_cards",
             "page": page,
             "cards": cards,
             "errors": errors,
         })
+        if completed:
+            self.redis.delete(crop_k)
+        return completed
 
     def fail_job(self, task_id: str, message: str) -> None:
         job = self.read_job(task_id)
@@ -165,7 +190,11 @@ class JobStore:
         first = self.redis.hsetnx(job_key(task_id), "failed_once", "1")
         if not first:
             return
+        ttl = settings.TASK_RESULT_EXPIRE_TIME
         self.redis.hset(job_key(task_id), mapping={"status": "error", "error": message})
+        self.redis.expire(job_key(task_id), ttl)
+        self.redis.expire(pages_key(task_id), ttl)
+        self.redis.delete(pending_key(task_id))
         publish_update(task_id, {
             "task_id": task_id,
             "filename": job.get("filename"),
@@ -244,6 +273,7 @@ class JobStore:
             )
             # Websocket clients can inspect unmerged page JSON without opening the sibling file.
             payload["raw_pages"] = raw_pages
+            ttl = settings.TASK_RESULT_EXPIRE_TIME
             self.redis.hset(
                 job_key(task_id),
                 mapping={
@@ -252,6 +282,9 @@ class JobStore:
                     "raw_pages_path": pages_path,
                 },
             )
+            self.redis.expire(job_key(task_id), ttl)
+            self.redis.expire(pages_key(task_id), ttl)
+            self.redis.delete(pending_key(task_id))
             publish_update(task_id, {
                 "task_id": task_id,
                 "filename": job.get("filename"),
@@ -271,8 +304,11 @@ class JobStore:
         remaining = self._decr_batch(keys=[job_key(task_id), batch_key(batch_id)])
         if remaining is False or remaining is None:
             return
+        ttl = settings.TASK_RESULT_EXPIRE_TIME
         if int(remaining) <= 0:
             self.redis.hset(batch_meta_key(batch_id), "status", "completed")
+            self.redis.expire(batch_meta_key(batch_id), ttl)
+            self.redis.expire(batch_tasks_key(batch_id), ttl)
             publish_update(task_id, {
                 "event": "batch_completed",
                 "batch_id": batch_id,

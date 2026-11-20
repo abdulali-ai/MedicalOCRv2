@@ -5,6 +5,8 @@ metadata:
   namespace: ocr
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: api
@@ -19,6 +21,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
+              hostPort: 5000
           envFrom:
             - configMapRef:
                 name: ocr-config
@@ -31,10 +34,16 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: /data
+            - name: app-code
+              mountPath: /app/app
       volumes:
         - name: storage
           persistentVolumeClaim:
             claimName: ocr-storage
+        - name: app-code
+          hostPath:
+            path: /home/utec/ocr/app
+            type: Directory
 ---
 apiVersion: v1
 kind: Service

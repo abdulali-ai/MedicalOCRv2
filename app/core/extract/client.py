@@ -1,11 +1,12 @@
 """One NuExtract image call. The caller does not wait before sending the next image."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
-import io
 import json
 import logging
+from io import BytesIO
 from pathlib import Path
 
 import httpx
@@ -32,7 +33,7 @@ class ExtractError(RuntimeError):
 logger = logging.getLogger(__name__)
 
 # A full page capped at 200 DPI is about 1700×2200. The silent shrink that
-# produced 640×827 stayed hidden because nothing checked the bytes after fit.
+# produced 640×827 stayed hidden because nothing checked the dimensions after fit.
 MIN_QUERY_LONG_EDGE = 1600
 
 # Longer names first so "verbatim-string" wins over "string" and "date-time" over "date".
@@ -151,9 +152,6 @@ def _image_part(encoded: str) -> dict:
 
 
 def _jpeg_base64(image: Image.Image) -> str:
-    import base64
-    from io import BytesIO
-
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=90)
     return base64.b64encode(buffer.getvalue()).decode("ascii")
@@ -191,36 +189,40 @@ def _fit_query_with_examples(
     return current
 
 
-def _log_payload_images(messages: list[dict], page_id, *, guard_query: bool) -> None:
-    """Decode the JPEGs in the request that is about to be posted."""
-    for message_index, message in enumerate(messages):
-        content = message.get("content")
-        if not isinstance(content, list):
-            continue
-        for part in content:
-            if not isinstance(part, dict) or part.get("type") != "image_url":
-                continue
-            url = part["image_url"]["url"]
-            raw = base64.b64decode(url.split(",", 1)[1])
-            with Image.open(io.BytesIO(raw)) as image:
-                logger.info(
-                    "page=%s msg=%d size=%dx%d mode=%s bytes=%d sha=%s",
-                    page_id,
-                    message_index,
-                    image.width,
-                    image.height,
-                    image.mode,
-                    len(raw),
-                    hashlib.sha256(raw).hexdigest()[:12],
-                )
-                if guard_query and message.get("role") == "user":
-                    dest = Path(f"/tmp/sent_{page_id}.jpg")
-                    dest.write_bytes(raw)
-                    logger.info("saved query jpeg %s", dest)
-                    if max(image.size) < MIN_QUERY_LONG_EDGE:
-                        raise ExtractError(
-                            f"page {page_id} downscaled to {image.size}, refusing to send"
-                        )
+def _prepare_encoded_query(
+    image_path: str,
+    template: dict,
+    max_tokens: int,
+    examples: ExampleList | None,
+    page_id: int | None,
+    guard_query: bool,
+) -> str:
+    """Open, downscale/fit to context budget, guard resolution, and JPEG-encode off the event loop."""
+    opened = Image.open(image_path)
+    image = opened
+    try:
+        dpi = image_dpi(opened)
+        image = cap_image_dpi(opened, RENDER_DPI if dpi is None else dpi)
+        if examples and isinstance(examples[0], InvoiceExample):
+            query = _fit_query_with_examples(image, template, max_tokens, examples, "Invoice")
+            if guard_query and max(query.size) < MIN_QUERY_LONG_EDGE:
+                raise ExtractError(f"page {page_id} downscaled to {query.size}, refusing to send")
+            return _jpeg_base64(query)
+        if examples and isinstance(examples[0], IdCardExample):
+            query = _fit_query_with_examples(image, template, max_tokens, examples, "ID-card")
+            return _jpeg_base64(query)
+        if examples:
+            query = _fit_query_with_examples(image, template, max_tokens, examples, "Classifier")
+            return _jpeg_base64(query)
+        if guard_query and max(image.size) < MIN_QUERY_LONG_EDGE:
+            raise ExtractError(f"page {page_id} downscaled to {image.size}, refusing to send")
+        return encode_image_for_request(image, template, max_tokens)
+    except ContextOverflow as exc:
+        raise ExtractError(str(exc)) from exc
+    finally:
+        opened.close()
+        if image is not opened:
+            image.close()
 
 
 async def extract_image(
@@ -234,28 +236,15 @@ async def extract_image(
     page_id: int | None = None,
     guard_query: bool = False,
 ) -> dict:
-    opened = Image.open(image_path)
-    image = opened
-    try:
-        dpi = image_dpi(opened)
-        image = cap_image_dpi(opened, RENDER_DPI if dpi is None else dpi)
-        if examples and isinstance(examples[0], InvoiceExample):
-            query = _fit_query_with_examples(image, template, max_tokens, examples, "Invoice")
-            encoded = _jpeg_base64(query)
-        elif examples and isinstance(examples[0], IdCardExample):
-            query = _fit_query_with_examples(image, template, max_tokens, examples, "ID-card")
-            encoded = _jpeg_base64(query)
-        elif examples:
-            query = _fit_query_with_examples(image, template, max_tokens, examples, "Classifier")
-            encoded = _jpeg_base64(query)
-        else:
-            encoded = encode_image_for_request(image, template, max_tokens)
-    except ContextOverflow as exc:
-        raise ExtractError(str(exc)) from exc
-    finally:
-        opened.close()
-        if image is not opened:
-            image.close()
+    encoded = await asyncio.to_thread(
+        _prepare_encoded_query,
+        image_path,
+        template,
+        max_tokens,
+        examples,
+        page_id if page_id is not None else trace_page,
+        guard_query,
+    )
 
     template, field_notes = separate_field_notes(template)
     extra = (instructions or "").strip()
@@ -302,7 +291,6 @@ async def extract_image(
             fingerprint["message_count"],
             ",".join(fingerprint["message_roles"]),
         )
-    _log_payload_images(messages, page_id if page_id is not None else trace_page, guard_query=guard_query)
     response = await client.post(settings.vllm_chat_url, json=body)
     if response.status_code >= 400:
         raise ExtractError(f"vLLM {response.status_code}: {response.text[:500]}")
