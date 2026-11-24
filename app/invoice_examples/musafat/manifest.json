@@ -2,16 +2,16 @@
   {
     "file": "inpatient_invoice.jpg",
     "output": "inpatient_invoice.json",
-    "source": "tests/massara/img11242025_0021_page_1.png"
+    "source": "results/2026-11-15/musafat/8.pdf#page=2"
+  },
+  {
+    "file": "inpatient_invoice_continuation.jpg",
+    "output": "inpatient_invoice_continuation.json",
+    "source": "results/2026-11-15/musafat/9.pdf#page=5"
   },
   {
     "file": "outpatient_invoice_1.jpg",
     "output": "outpatient_invoice_1.json",
-    "source": "tests/massara/doctor_invoice.jpg"
-  },
-  {
-    "file": "outpatient_invoice_2.jpg",
-    "output": "outpatient_invoice_2.json",
-    "source": "tests/massara/outpatient_receipt.jpg"
+    "source": "results/2026-11-15/musafat/8.pdf#page=5"
   }
 ]

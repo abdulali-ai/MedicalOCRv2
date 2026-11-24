@@ -15,6 +15,7 @@ from PIL import Image
 from app.config import settings
 from app.core.extract.budget import (
     RENDER_DPI,
+    VLLM_IMAGE_DPI,
     ContextOverflow,
     cap_image_dpi,
     encode_image_for_request,
@@ -196,13 +197,14 @@ def _prepare_encoded_query(
     examples: ExampleList | None,
     page_id: int | None,
     guard_query: bool,
+    max_dpi: float = VLLM_IMAGE_DPI,
 ) -> str:
     """Open, downscale/fit to context budget, guard resolution, and JPEG-encode off the event loop."""
     opened = Image.open(image_path)
     image = opened
     try:
         dpi = image_dpi(opened)
-        image = cap_image_dpi(opened, RENDER_DPI if dpi is None else dpi)
+        image = cap_image_dpi(opened, RENDER_DPI if dpi is None else dpi, max_dpi=max_dpi)
         if examples and isinstance(examples[0], InvoiceExample):
             query = _fit_query_with_examples(image, template, max_tokens, examples, "Invoice")
             if guard_query and max(query.size) < MIN_QUERY_LONG_EDGE:
@@ -235,6 +237,7 @@ async def extract_image(
     instructions: str | None = None,
     page_id: int | None = None,
     guard_query: bool = False,
+    max_dpi: float = VLLM_IMAGE_DPI,
 ) -> dict:
     encoded = await asyncio.to_thread(
         _prepare_encoded_query,
@@ -244,6 +247,7 @@ async def extract_image(
         examples,
         page_id if page_id is not None else trace_page,
         guard_query,
+        max_dpi,
     )
 
     template, field_notes = separate_field_notes(template)

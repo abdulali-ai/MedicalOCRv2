@@ -25,6 +25,7 @@ class ContextOverflow(RuntimeError):
 # do not carry a DPI tag, so a missing tag means that render resolution.
 RENDER_DPI = 300
 VLLM_IMAGE_DPI = 250
+CLASSIFY_IMAGE_DPI = 150
 
 
 def image_dpi(image: Image.Image) -> float | None:

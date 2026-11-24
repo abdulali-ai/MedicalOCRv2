@@ -59,11 +59,19 @@ class RegistryTests(unittest.TestCase):
         registry = load_registry()
         self.assertEqual(registry.names, ["janzour", "massara", "musafat", "safwa"])
         safwa_invoice = dict(registry.get("safwa")["invoice"])
-        self.assertEqual(
-            safwa_invoice.pop("instructions"),
-            "Output every printed table row. Keep consecutive rows that repeat the same code, time, and price as separate items. Do not merge them.",
-        )
-        self.assertEqual(safwa_invoice, registry.get("janzour")["invoice"])
+        janzour_invoice = dict(registry.get("janzour")["invoice"])
+        self.assertIn("horizontal row borders", safwa_invoice.pop("instructions"))
+        self.assertIn("صافي السعر", janzour_invoice.pop("instructions"))
+        self.assertEqual(set(safwa_invoice), set(janzour_invoice))
+        self.assertIsNone(janzour_invoice["room"]["number"])
+        self.assertIsNone(janzour_invoice["run_date"])
+        self.assertIsNone(janzour_invoice["user"])
+        self.assertIsNone(janzour_invoice["summary"]["total"]["value"])
+        self.assertIsNone(janzour_invoice["sections"][0]["section_total"]["net_price"])
+        self.assertIsNone(safwa_invoice["run_date"])
+        self.assertIsNone(safwa_invoice["user"])
+        self.assertIsNone(safwa_invoice["summary"]["total"]["value"])
+        self.assertIsNone(safwa_invoice["sections"][0]["section_total"]["net_price"])
         self.assertEqual(registry.get("safwa")["id_card"], registry.get("janzour")["id_card"])
         self.assertEqual(
             registry.get("safwa")["classify"]["document_type"],
@@ -76,12 +84,20 @@ class RegistryTests(unittest.TestCase):
         self.assertNotIn("instructions", registry.get("massara")["classify"])
         invoice = registry.get("janzour")["invoice"]
         outpatient = registry.get("safwa")["outpatient_invoice"]
+        self.assertIn("Return null", outpatient["instructions"])
         self.assertEqual(outpatient["invoice_number"], "verbatim-string")
+        self.assertIsNone(outpatient["print_date"])
+        self.assertIsNone(outpatient["patient"]["status"])
+        self.assertIsNone(outpatient["room"]["number"])
+        self.assertIsNone(outpatient["user"])
         self.assertNotIn("summary", outpatient)
         item = outpatient["sections"][0]["items"][0]
+        self.assertIsNone(item["code"])
+        self.assertIsNone(item["date"])
+        self.assertIsNone(item["time"])
         self.assertEqual(item["unit_price"], 0.0)
         self.assertNotIn("patient_share", item)
-        self.assertEqual(outpatient["patient"], invoice["patient"])
+        self.assertEqual(set(outpatient["patient"]), set(invoice["patient"]))
         self.assertEqual(invoice["patient"]["admission_no"], "verbatim-string")
         self.assertIn("card_number", registry.get("janzour")["id_card"])
         self.assertIn("validity_period", registry.get("janzour")["id_card"])
@@ -119,12 +135,23 @@ class RegistryTests(unittest.TestCase):
         )
         musafat_invoice = json.loads(json.dumps(musafat["invoice"]))
         musafat_invoice["receipt"]["receipt_number"] = "verbatim-string"
+        self.assertIn("Return null for any field not printed", musafat_invoice.pop("instructions"))
         massara_invoice = json.loads(json.dumps(massara["invoice"]))
         self.assertEqual(
             massara_invoice.pop("instructions"),
             "Output every printed table row, even when stamped over or when consecutive rows repeat the same code, description, and price. Never skip or merge rows. Start a new section whenever a printed section header row appears in the table. Use null for section_name only for rows at the top of a continuation page before the first section header on that page. Do not invent section names not printed in the table, do not output empty sections, and do not copy a section or its rows into another section.",
         )
-        self.assertEqual(musafat_invoice, massara_invoice)
+        self.assertEqual(set(musafat_invoice), set(massara_invoice))
+        self.assertIsNone(musafat_invoice["stay"]["admission_date"])
+        self.assertIsNone(musafat_invoice["stay"]["discharge_date"])
+        self.assertIsNone(musafat_invoice["sections"][0]["items"][0]["description"])
+        self.assertIsNone(musafat_invoice["sections"][0]["items"][0]["english_description"])
+        musafat_outpatient = musafat["outpatient_invoice"]
+        self.assertIn("unit column", musafat_outpatient["instructions"])
+        self.assertIsNone(musafat_outpatient["hospital_name"])
+        self.assertIsNone(musafat_outpatient["patient"]["company"])
+        self.assertIsNone(musafat_outpatient["stay"]["admission_date"])
+        self.assertIsNone(musafat_outpatient["sections"][0]["section_name"])
         self.assertEqual(musafat["classify"], massara["classify"])
         self.assertIsNone(outpatient["patient"]["relationship"])
         self.assertIsNone(outpatient["stay"]["admission_date"])
@@ -469,11 +496,18 @@ class MergeTests(unittest.TestCase):
                             "section_name": None,
                             "items": [
                                 {"code": "316206", "net_price": 378.0},
-                                {"code": "321", "net_price": 1463.0},
-                                {"code": "322", "net_price": 815.0},
+                                {"code": "321", "date": "19.04.2025", "time": "18:09", "net_price": 1463.0},
+                                {"code": "322", "date": "19.04.2025", "time": "16:33", "net_price": 815.0},
                             ],
                             "section_total": {"net_price": 2656.0},
-                        }
+                        },
+                        {
+                            "section_name": None,
+                            "items": [
+                                {"code": "322", "date": "19.04.2025", "time": "16:33", "net_price": 815.0},
+                            ],
+                            "section_total": {"net_price": 815.0},
+                        },
                     ],
                 },
             },
@@ -552,6 +586,77 @@ class MergeTests(unittest.TestCase):
         outpatient_doc = next(doc for doc in split if doc["document_type"] == "outpatient_invoice")
         self.assertEqual(outpatient_doc["pages"], [2])
         self.assertEqual(outpatient_doc["patient"]["admission_no"], "IP9")
+
+        # Separate outpatient receipts for the same patient/visit stay apart.
+        two_receipts = [
+            {
+                "page": 1,
+                "document_type": "outpatient_invoice",
+                "data": {
+                    "patient": {"admission_no": "OP2500090509", "medical_no": "U2111007156"},
+                    "invoice_number": "RG2500172187",
+                    "sections": [{"section_name": "خدمات طوارئ", "items": [{"code": "A"}]}],
+                },
+            },
+            {
+                "page": 2,
+                "document_type": "outpatient_invoice",
+                "data": {
+                    "patient": {"admission_no": "OP2500090509", "medical_no": "U2111007156"},
+                    "invoice_number": "RG2500172186",
+                    "sections": [{"section_name": "الصيدلية", "items": [{"code": "B"}]}],
+                },
+            },
+        ]
+        separate = merge_pages(two_receipts, template="safwa")
+        self.assertEqual(len(separate), 2)
+        self.assertEqual(
+            [doc["invoice_number"] for doc in separate],
+            ["RG2500172187", "RG2500172186"],
+        )
+
+    def test_janzour_repairs_unit_price_read_into_net_price(self):
+        pages = [
+            {
+                "page": 3,
+                "document_type": "invoice",
+                "data": {
+                    "patient": {"admission_no": "EP250014935", "medical_no": "U2500015966"},
+                    "sections": [
+                        {
+                            "section_name": "أدوية و مستلزمات طبية",
+                            "items": [
+                                {
+                                    "code": "IV000000014",
+                                    "quantity": 2,
+                                    "net_price": 10.64,
+                                    "patient_share": 0.0,
+                                    "payer_share": 21.28,
+                                },
+                                {
+                                    "code": "SYR00000013",
+                                    "quantity": 5,
+                                    "net_price": 0.87,
+                                    "patient_share": 0.0,
+                                    "payer_share": 4.37,
+                                },
+                                {
+                                    "code": "CL022000016",
+                                    "quantity": 1,
+                                    "net_price": 17.25,
+                                    "patient_share": 0.0,
+                                    "payer_share": 17.25,
+                                },
+                            ],
+                            "section_total": {"net_price": 42.9, "patient_share": 0.0, "payer_share": 42.9},
+                        }
+                    ],
+                },
+            }
+        ]
+        merged = merge_pages(pages, template="janzour")
+        items = merged[0]["sections"][0]["items"]
+        self.assertEqual([item["net_price"] for item in items], [21.28, 4.37, 17.25])
 
 
 class AssembleTests(unittest.TestCase):
@@ -708,31 +813,69 @@ class BudgetTests(unittest.TestCase):
         self.assertIsNone(outpatient2["patient"]["company"])
         musafat_invoices = invoice_examples("musafat")
         self.assertEqual(len(musafat_invoices), 3)
+        self.assertEqual(
+            [item.file for item in invoice_examples("musafat", "invoice")],
+            ["inpatient_invoice.jpg", "inpatient_invoice_continuation.jpg"],
+        )
+        self.assertEqual(
+            [item.file for item in invoice_examples("musafat", "outpatient_invoice")],
+            ["outpatient_invoice_1.jpg"],
+        )
+        musafat_inpatient = json.loads(musafat_invoices[0].output)
+        self.assertEqual(musafat_inpatient["hospital_name"], "AL MUASAFAT CLINIC")
+        self.assertEqual(musafat_inpatient["sections"][0]["section_name"], "خدمات أخرى")
+        musafat_outpatient = json.loads(musafat_invoices[2].output)
+        self.assertEqual(musafat_outpatient["hospital_name"], "AL MUASAFAT CLINIC")
+        self.assertIsNone(musafat_outpatient["patient"]["company"])
+        musafat_schema = load_registry().get("musafat")["invoice"]
+        for stage in ("invoice", "outpatient_invoice"):
+            musafat_packed = (
+                invoice_example_tokens("musafat", stage)
+                + image_token_count(page_w, page_h)
+                + template_token_count(musafat_schema)
+                + settings.MAX_TOKENS_INVOICE
+            )
+            self.assertLessEqual(musafat_packed, settings.VLLM_MAX_MODEL_LEN)
         safwa_invoices = invoice_examples("safwa")
-        self.assertEqual(safwa_invoices[0].output, examples[0].output)
-        self.assertEqual(len(safwa_invoices), 3)
+        self.assertEqual(len(safwa_invoices), 4)
         self.assertEqual(
             [item.file for item in invoice_examples("safwa", "invoice")],
-            ["inpatient_invoice.jpg"],
+            ["inpatient_invoice.jpg", "inpatient_invoice_2.jpg"],
         )
         self.assertEqual(
             [item.file for item in invoice_examples("safwa", "outpatient_invoice")],
             ["outpatient_invoice.jpg", "outpatient_invoice_1.jpg"],
         )
-        outpatient = json.loads(safwa_invoices[1].output)
+        safwa_inpatient = json.loads(safwa_invoices[0].output)
+        self.assertEqual(safwa_inpatient["hospital_name"], "مستشفى الصفوة الدولي")
+        self.assertEqual(safwa_inpatient["patient"]["admission_no"], "IP2500001595")
+        self.assertIsNone(safwa_inpatient["summary"]["total"]["value"])
+        safwa_inpatient_2 = json.loads(safwa_invoices[1].output)
+        self.assertEqual(safwa_inpatient_2["summary"]["net"]["value"], 5709.04)
+        outpatient = json.loads(safwa_invoices[2].output)
         self.assertEqual(outpatient["invoice_number"], "RG2500172090")
         self.assertEqual(outpatient["patient"]["admission_no"], "OP2500090469")
         self.assertEqual(outpatient["patient"]["medical_no"], "U2500005228")
+        self.assertEqual(outpatient["sections"][0]["section_name"], "عيادة النساء مناوبات")
         self.assertEqual(outpatient["sections"][0]["items"][0]["code"], "SPE0000017")
         self.assertEqual(outpatient["sections"][0]["items"][0]["unit_price"], 25.0)
         self.assertEqual(outpatient["user"], "بشري.محمد")
-        second = json.loads(safwa_invoices[2].output)
+        second = json.loads(safwa_invoices[3].output)
         self.assertEqual(second["invoice_number"], "FI2500001740")
         self.assertEqual(second["patient"]["admission_no"], "IP2500001615")
         self.assertEqual(second["patient"]["medical_no"], "U2200036133")
         self.assertEqual(second["sections"][0]["items"][0]["description"], "خدمات الإقامة والاعاشة")
         self.assertEqual(second["sections"][0]["section_total"]["net_price"], 5080.1)
         self.assertIsNone(second["user"])
+        safwa_invoice_schema = load_registry().get("safwa")["invoice"]
+        for stage in ("invoice", "outpatient_invoice"):
+            safwa_packed = (
+                invoice_example_tokens("safwa", stage)
+                + image_token_count(page_w, page_h)
+                + template_token_count(safwa_invoice_schema)
+                + settings.MAX_TOKENS_INVOICE
+            )
+            self.assertLessEqual(safwa_packed, settings.VLLM_MAX_MODEL_LEN)
         massara_invoice = load_registry().get("massara")["invoice"]
         for stage in ("invoice", "outpatient_invoice"):
             massara_packed = (
@@ -757,7 +900,10 @@ class BudgetTests(unittest.TestCase):
             [item.output for item in id_card_examples("musafat")],
             [item.output for item in id_card_examples("massara")],
         )
-        self.assertEqual(id_card_examples("safwa"), [])
+        self.assertEqual(
+            [item.output for item in id_card_examples("safwa")],
+            [item.output for item in id_card_examples("janzour")],
+        )
 
     def test_dpi_above_250_is_reduced_to_250(self):
         image = Image.new("RGB", (300, 600), "white")
@@ -1121,6 +1267,45 @@ class ParseTests(unittest.TestCase):
             labels["properties"]["document_type"]["enum"],
             ["inpatient_invoice", "outpatient_invoice", "other_document"],
         )
+
+
+class ExtractWorkerDispatchTests(unittest.TestCase):
+    def test_spawn_skips_already_inflight_message_id(self):
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from app.services import extract_worker
+
+        self.assertGreaterEqual(settings.EXTRACT_CLAIM_IDLE_MS, 300_000)
+
+        async def scenario():
+            started = asyncio.Event()
+            release = asyncio.Event()
+
+            async def fake_process_and_ack(*_args, **_kwargs):
+                started.set()
+                await release.wait()
+
+            inflight: set[asyncio.Task] = set()
+            inflight_ids: set[str] = set()
+            sem = asyncio.Semaphore(4)
+            with patch.object(extract_worker, "_process_and_ack", side_effect=fake_process_and_ack):
+                first = extract_worker._spawn(
+                    inflight, inflight_ids, sem, None, None, None, AsyncMock(), "1-0", {}
+                )
+                self.assertTrue(first)
+                await started.wait()
+                # Reclaiming the same message_id while still in flight must be ignored.
+                dup = extract_worker._spawn(
+                    inflight, inflight_ids, sem, None, None, None, AsyncMock(), "1-0", {}
+                )
+                self.assertFalse(dup)
+                self.assertEqual(len(inflight), 1)
+                release.set()
+                await asyncio.gather(*list(inflight))
+                await asyncio.sleep(0)
+                self.assertEqual(len(inflight_ids), 0)
+
+        asyncio.run(scenario())
 
 
 if __name__ == "__main__":

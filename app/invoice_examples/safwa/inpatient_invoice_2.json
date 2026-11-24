@@ -1,0 +1,87 @@
+{
+  "hospital_name": "مستشفى الصفوة الدولي",
+  "document_title": "كشف تفاصيل الخدمات",
+  "print_date": "7/18/25 4:06PM",
+  "patient": {
+    "name": "خديجه محمد امحمد البرقلي",
+    "admission_no": "IP2500001595",
+    "medical_no": "U2200018217",
+    "status": "حالة مستشفى"
+  },
+  "payer": "شركة ميثاق للتأمين (ACA)",
+  "agreement": "هيئة الرقابة الادارية",
+  "doctor": "د.خالد المبارك",
+  "specialty": "جراحة عيون",
+  "room": {
+    "number": "VIRT-1",
+    "type": "غرفة زوجية"
+  },
+  "stay": {
+    "from_date": "15/07/2025",
+    "from_time": "08:39",
+    "to_date": "15/07/2025",
+    "to_time": "14:46"
+  },
+  "sections": [
+    {
+      "section_name": "العملية الجراحية",
+      "items": [
+        {
+          "code": "SUR-O00067",
+          "description": "أجار غرفه العمليات : إزالة المياه البيضاء phaco + عدسه متطوره",
+          "quantity": 1,
+          "date": "15/07/2025",
+          "time": "10:45",
+          "net_price": 3725.0,
+          "patient_share": 0.0,
+          "payer_share": 3725.0
+        },
+        {
+          "code": "SUR-O00067",
+          "description": "أجار غرفه العمليات : حقنة افاستين بالعين",
+          "quantity": 1,
+          "date": "15/07/2025",
+          "time": "10:50",
+          "net_price": 980.0,
+          "patient_share": 0.0,
+          "payer_share": 980.0
+        }
+      ],
+      "section_total": {
+        "net_price": 4705.0,
+        "patient_share": 0.0,
+        "payer_share": 4705.0
+      }
+    },
+    {
+      "section_name": "أجور اطباء",
+      "items": [
+        {
+          "code": "SUR-O00821",
+          "description": "عدسه متطورة",
+          "quantity": 1,
+          "date": "15/07/2025",
+          "time": "10:45",
+          "net_price": 700.0,
+          "patient_share": 0.0,
+          "payer_share": 700.0
+        }
+      ],
+      "section_total": {
+        "net_price": 700.0,
+        "patient_share": 0.0,
+        "payer_share": 700.0
+      }
+    }
+  ],
+  "summary": {
+    "total": {"value": 5709.04, "payer_share": 5709.04, "patient_share": 0.0},
+    "medical_service": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "discount": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "vat": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "stamp_duty": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
+    "net": {"value": 5709.04, "payer_share": 5709.04, "patient_share": 0.0}
+  },
+  "run_date": "18/08/2025",
+  "user": "مبروك امحمد"
+}

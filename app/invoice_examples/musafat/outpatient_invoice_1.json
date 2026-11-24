@@ -1,12 +1,12 @@
 {
-  "hospital_name": "Masarra Clinic",
-  "document_title": "كشوفات",
+  "hospital_name": "AL MUASAFAT CLINIC",
+  "document_title": "فاتورة نهائية",
   "patient": {
-    "file_number": "1121128",
-    "name": "نادر حلاسام البتي",
-    "company": "شركة ميثاق للتأمين",
-    "organization": "هيئة الرقابة الادراية",
-    "employee_number": "ACA-2501-07120-C05",
+    "file_number": "449705",
+    "name": "سميه نصر على بلحوق",
+    "company": null,
+    "organization": "الرقابة الإدارية",
+    "employee_number": null,
     "relationship": null
   },
   "stay": {
@@ -14,33 +14,52 @@
     "discharge_date": null
   },
   "receipt": {
-    "receipt_number": null,
-    "invoice_number": "1032995",
-    "receipt_date": "19.07.2025"
+    "receipt_number": "274992",
+    "receipt_date": "17/07/2025"
   },
   "sections": [
     {
-      "section_name": "كشوفات",
+      "section_name": null,
       "items": [
         {
-          "code": null,
-          "description": "كشف طبيب+++",
-          "english_description": null,
-          "date": "19/07/2025",
-          "time": "7:57 pm",
+          "code": "121159",
+          "description": null,
+          "english_description": "Stopalgic 500mg Tab",
+          "date": null,
+          "time": null,
           "quantity": 1,
-          "unit_price": 38.0,
-          "net_price": 38.0
+          "unit_price": 1.0,
+          "net_price": 1.0
+        },
+        {
+          "code": "11010038",
+          "description": null,
+          "english_description": "Keflex cap 500mg F4",
+          "date": null,
+          "time": null,
+          "quantity": 1,
+          "unit_price": 16.0,
+          "net_price": 16.0
+        },
+        {
+          "code": "11012989",
+          "description": null,
+          "english_description": "PROFEN 400",
+          "date": null,
+          "time": null,
+          "quantity": 1,
+          "unit_price": 5.0,
+          "net_price": 5.0
         }
       ],
       "section_total": {
-        "net_price": 38.0
+        "net_price": 22.0
       }
     }
   ],
   "summary": {
-    "total": 38.0,
-    "paid": null,
-    "remaining": null
+    "total": 22.0,
+    "paid": 0.0,
+    "remaining": 22.0
   }
 }

@@ -8,6 +8,7 @@
     ]
   },
   "invoice": {
+    "instructions": "Output every printed table row and keep consecutive rows that repeat the same code, time, and price as separate items; do not merge them. For net_price always read the صافي السعر column (never سعر الوحدة / unit price). In summary, read الإجمالي for total and الصافي for net without copying net into total when a discount is present. Return null for any field or summary/section_total row not printed on the page (such as room when blank, run_date, user, or summary rows that appear on another page); never copy patient name or admission_no into room.",
     "hospital_name": "verbatim-string",
     "document_title": "verbatim-string",
     "print_date": "verbatim-string",
@@ -22,8 +23,8 @@
     "doctor": "verbatim-string",
     "specialty": "verbatim-string",
     "room": {
-      "number": "verbatim-string",
-      "type": "verbatim-string"
+      "number": null,
+      "type": null
     },
     "stay": {
       "from_date": "verbatim-string",
@@ -47,22 +48,22 @@
           }
         ],
         "section_total": {
-          "net_price": 0.0,
-          "patient_share": 0.0,
-          "payer_share": 0.0
+          "net_price": null,
+          "patient_share": null,
+          "payer_share": null
         }
       }
     ],
     "summary": {
-      "total": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "medical_service": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "discount": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "vat": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "stamp_duty": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "net": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0}
+      "total": {"value": null, "payer_share": null, "patient_share": null},
+      "medical_service": {"value": null, "payer_share": null, "patient_share": null},
+      "discount": {"value": null, "payer_share": null, "patient_share": null},
+      "vat": {"value": null, "payer_share": null, "patient_share": null},
+      "stamp_duty": {"value": null, "payer_share": null, "patient_share": null},
+      "net": {"value": null, "payer_share": null, "patient_share": null}
     },
-    "run_date": "verbatim-string",
-    "user": "verbatim-string"
+    "run_date": null,
+    "user": null
   },
   "id_card": {
     "card_number": "verbatim-string",

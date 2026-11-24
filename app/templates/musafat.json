@@ -7,6 +7,7 @@
     ]
   },
   "invoice": {
+    "instructions": "Output every printed table row, even when stamped over or when consecutive rows repeat the same code, description, and price. Never skip or merge rows. Start a new section whenever a printed section header row appears in the table. Use null for section_name only for rows at the top of a continuation page before the first section header on that page. Return null for any field not printed on the page (such as stay.admission_date and stay.discharge_date on single-visit receipts, or description/english_description when only one language is printed). Put the Arabic service name in description and the English service name in english_description; never swap or duplicate them across both fields. Do not invent section names not printed in the table and do not output empty sections.",
     "hospital_name": "verbatim-string",
     "document_title": "verbatim-string",
     "patient": {
@@ -18,8 +19,8 @@
       "relationship": "verbatim-string"
     },
     "stay": {
-      "admission_date": "verbatim-string",
-      "discharge_date": "verbatim-string"
+      "admission_date": null,
+      "discharge_date": null
     },
     "receipt": {
       "receipt_number": "verbatim-string. The digits printed after إيصال رقم. Copy them. Do not return null.",
@@ -31,8 +32,8 @@
         "items": [
           {
             "code": "verbatim-string",
-            "description": "verbatim-string",
-            "english_description": "verbatim-string",
+            "description": null,
+            "english_description": null,
             "date": "verbatim-string",
             "time": "verbatim-string",
             "quantity": 0,
@@ -52,19 +53,20 @@
     }
   },
   "outpatient_invoice": {
-    "hospital_name": "verbatim-string",
+    "instructions": "Return null for any field not printed on the invoice (such as hospital_name when no letterhead is printed, company, employee_number, relationship, stay, section_name, item date and time, or description when only an English drug name is printed). Never copy the unit column (such as Strip, Bottle, Ampul, شريط, قطعة) into english_description, and never copy a hospital name from examples when it is not printed on the page. Put Arabic text in description and English text in english_description without duplicating the same string in both. Output every printed table row and never skip or merge rows.",
+    "hospital_name": null,
     "document_title": "verbatim-string",
     "patient": {
       "file_number": "verbatim-string",
       "name": "verbatim-string",
-      "company": "verbatim-string",
+      "company": null,
       "organization": "verbatim-string",
-      "employee_number": "verbatim-string",
-      "relationship": "verbatim-string"
+      "employee_number": null,
+      "relationship": null
     },
     "stay": {
-      "admission_date": "verbatim-string",
-      "discharge_date": "verbatim-string"
+      "admission_date": null,
+      "discharge_date": null
     },
     "receipt": {
       "receipt_number": null,
@@ -72,14 +74,14 @@
     },
     "sections": [
       {
-        "section_name": "verbatim-string",
+        "section_name": null,
         "items": [
           {
             "code": null,
-            "description": "verbatim-string",
-            "english_description": "verbatim-string",
-            "date": "verbatim-string",
-            "time": "verbatim-string",
+            "description": null,
+            "english_description": null,
+            "date": null,
+            "time": null,
             "quantity": 0,
             "unit_price": 0.0,
             "net_price": 0.0
@@ -92,8 +94,8 @@
     ],
     "summary": {
       "total": 0.0,
-      "paid": 0.0,
-      "remaining": 0.0
+      "paid": null,
+      "remaining": null
     }
   },
   "id_card": {

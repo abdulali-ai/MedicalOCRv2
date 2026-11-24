@@ -8,7 +8,7 @@
     "instructions": "If the title at the top contains فاتورة رقم, إيصال رقم, or إيصال تفصيلي رقم followed by a number, choose outpatient_invoice. If the title is كشف تفاصيل الخدمات and has no invoice number, choose inpatient_invoice. Classify every other type of image that is not like the invoices in the examples (such as وصفة طبية, prescriptions, lab results, or medical forms) as other_document."
   },
   "invoice": {
-    "instructions": "Output every printed table row. Keep consecutive rows that repeat the same code, time, and price as separate items. Do not merge them.",
+    "instructions": "Output every printed table row strictly along its horizontal row borders so each item keeps its exact code, description, quantity, date, time, net_price, patient_share, and payer_share; never shift values across rows or duplicate rows when a description wraps onto two lines. For net_price always read the صافي السعر column (never سعر الوحدة / unit price). Keep consecutive rows that repeat the same code, time, and price as separate items; do not merge them. Return null for any field not printed on the page (such as run_date, user, or summary and section_total when absent).",
     "hospital_name": "verbatim-string",
     "document_title": "verbatim-string",
     "print_date": "verbatim-string",
@@ -48,70 +48,94 @@
           }
         ],
         "section_total": {
-          "net_price": 0.0,
-          "patient_share": 0.0,
-          "payer_share": 0.0
+          "net_price": null,
+          "patient_share": null,
+          "payer_share": null
         }
       }
     ],
     "summary": {
-      "total": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "medical_service": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "discount": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "vat": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "stamp_duty": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-      "net": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0}
+      "total": {
+        "value": null,
+        "payer_share": null,
+        "patient_share": null
+      },
+      "medical_service": {
+        "value": null,
+        "payer_share": null,
+        "patient_share": null
+      },
+      "discount": {
+        "value": null,
+        "payer_share": null,
+        "patient_share": null
+      },
+      "vat": {
+        "value": null,
+        "payer_share": null,
+        "patient_share": null
+      },
+      "stamp_duty": {
+        "value": null,
+        "payer_share": null,
+        "patient_share": null
+      },
+      "net": {
+        "value": null,
+        "payer_share": null,
+        "patient_share": null
+      }
     },
-    "run_date": "verbatim-string",
-    "user": "verbatim-string"
+    "run_date": null,
+    "user": null
   },
   "outpatient_invoice": {
+    "instructions": "Return null for any field not printed on the document (such as print_date, status, room, stay, run_date, user, or item code, date, and time). Never copy التسلسل, الرقم الوظيفي, or medical_no into status or room. Output every printed table row and never skip or merge rows.",
     "hospital_name": "verbatim-string",
     "document_title": "verbatim-string",
-    "print_date": "verbatim-string",
+    "print_date": null,
     "invoice_number": "verbatim-string",
     "patient": {
       "name": "verbatim-string",
       "admission_no": "verbatim-string",
       "medical_no": "verbatim-string",
-      "status": "verbatim-string"
+      "status": null
     },
     "payer": "verbatim-string",
     "agreement": "verbatim-string",
     "doctor": "verbatim-string",
     "specialty": "verbatim-string",
     "room": {
-      "number": "verbatim-string",
-      "type": "verbatim-string"
+      "number": null,
+      "type": null
     },
     "stay": {
-      "from_date": "verbatim-string",
-      "from_time": "verbatim-string",
-      "to_date": "verbatim-string",
-      "to_time": "verbatim-string"
+      "from_date": null,
+      "from_time": null,
+      "to_date": null,
+      "to_time": null
     },
     "sections": [
       {
         "section_name": "verbatim-string",
         "items": [
           {
-            "code": "verbatim-string",
+            "code": null,
             "description": "verbatim-string",
             "quantity": 0,
-            "date": "verbatim-string",
-            "time": "verbatim-string",
+            "date": null,
+            "time": null,
             "unit_price": 0.0,
             "net_price": 0.0
           }
         ],
         "section_total": {
           "net_price": 0.0
-
         }
       }
     ],
-    "run_date": "verbatim-string",
-    "user": "verbatim-string"
+    "run_date": null,
+    "user": null
   },
   "id_card": {
     "card_number": "verbatim-string",

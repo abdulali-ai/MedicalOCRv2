@@ -11,6 +11,7 @@ import redis
 import redis.asyncio as aioredis
 
 from app.config import settings
+from app.core.extract.budget import CLASSIFY_IMAGE_DPI, VLLM_IMAGE_DPI
 from app.core.extract.client import ExtractError, extract_image
 from app.core.extract.examples import classifier_examples, id_card_examples, invoice_examples
 from app.core.extract.parse import invoice_is_empty
@@ -36,7 +37,7 @@ async def _reclaim(client, stream: str, group: str, consumer: str, count: int):
             stream,
             group,
             consumer,
-            min_idle_time=settings.STREAM_CLAIM_IDLE_MS,
+            min_idle_time=settings.EXTRACT_CLAIM_IDLE_MS,
             start_id="0-0",
             count=max(1, count),
         )
@@ -59,6 +60,7 @@ async def run() -> None:
     async_redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     consumer = f"{socket.gethostname()}-{os.getpid()}"
     inflight: set[asyncio.Task] = set()
+    inflight_ids: set[str] = set()
     timeout = httpx.Timeout(settings.VLLM_TIMEOUT_SECONDS)
     limits = httpx.Limits(
         max_connections=max_concurrency * 2,
@@ -81,7 +83,7 @@ async def run() -> None:
             if claimed:
                 _next, messages, *_rest = claimed
                 for message_id, fields in messages or []:
-                    _spawn(inflight, semaphore, store, registry, http, async_redis, message_id, fields)
+                    _spawn(inflight, inflight_ids, semaphore, store, registry, http, async_redis, message_id, fields)
 
             available = max_concurrency - len(inflight)
             if available <= 0:
@@ -104,15 +106,25 @@ async def run() -> None:
                 continue
             for _stream, messages in response:
                 for message_id, fields in messages:
-                    _spawn(inflight, semaphore, store, registry, http, async_redis, message_id, fields)
+                    _spawn(inflight, inflight_ids, semaphore, store, registry, http, async_redis, message_id, fields)
 
 
-def _spawn(inflight, semaphore, store, registry, http, async_redis, message_id, fields) -> None:
+def _spawn(inflight, inflight_ids, semaphore, store, registry, http, async_redis, message_id, fields) -> bool:
+    if message_id in inflight_ids:
+        logger.debug("Skipping reclaim of already in-flight extract message %s", message_id)
+        return False
+    inflight_ids.add(message_id)
     task = asyncio.create_task(
         _process_and_ack(semaphore, store, registry, http, async_redis, message_id, fields)
     )
     inflight.add(task)
-    task.add_done_callback(inflight.discard)
+
+    def _done(finished_task: asyncio.Task) -> None:
+        inflight.discard(finished_task)
+        inflight_ids.discard(message_id)
+
+    task.add_done_callback(_done)
+    return True
 
 
 async def _process_and_ack(semaphore, store, registry, http, async_redis, message_id, fields) -> None:
@@ -283,6 +295,7 @@ async def _call_extract(http, fields: dict, job: dict, stage: str, template: dic
         instructions=instructions,
         page_id=page,
         guard_query=_is_invoice_stage(stage),
+        max_dpi=CLASSIFY_IMAGE_DPI if stage == "classify" else VLLM_IMAGE_DPI,
     )
 
 

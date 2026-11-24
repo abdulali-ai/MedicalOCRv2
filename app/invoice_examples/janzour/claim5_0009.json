@@ -315,12 +315,12 @@
     }
   ],
   "summary": {
-    "total": {"value": 375.23, "payer_share": 375.23, "patient_share": 0.0},
-    "medical_service": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-    "discount": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-    "vat": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-    "stamp_duty": {"value": 0.0, "payer_share": 0.0, "patient_share": 0.0},
-    "net": {"value": 375.23, "payer_share": 375.23, "patient_share": 0.0}
+    "total": {"value": null, "payer_share": null, "patient_share": null},
+    "medical_service": {"value": null, "payer_share": null, "patient_share": null},
+    "discount": {"value": null, "payer_share": null, "patient_share": null},
+    "vat": {"value": null, "payer_share": null, "patient_share": null},
+    "stamp_duty": {"value": null, "payer_share": null, "patient_share": null},
+    "net": {"value": null, "payer_share": null, "patient_share": null}
   },
   "run_date": "24/04/2025",
   "user": "kanz"

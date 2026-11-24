@@ -1,0 +1,91 @@
+{
+  "hospital_name": "AL MUASAFAT CLINIC",
+  "document_title": "فاتورة إيواء",
+  "patient": {
+    "file_number": "450633",
+    "name": "عبدالحميد العربي المبروك دلعوب",
+    "company": "شركة ميثاق التأمين",
+    "organization": "الرقابة الإدارية",
+    "employee_number": "aca-2501-04854-e01",
+    "relationship": "نفسه"
+  },
+  "stay": {
+    "admission_date": "19.07.2025",
+    "discharge_date": "20.07.2025"
+  },
+  "receipt": {
+    "receipt_number": "24422",
+    "receipt_date": "20.07.2025"
+  },
+  "sections": [
+    {
+      "section_name": null,
+      "items": [
+        {
+          "code": "23131002",
+          "description": "الغرفه 9",
+          "english_description": null,
+          "date": "19.07.2025",
+          "time": "06:55",
+          "quantity": 1,
+          "unit_price": 295.0,
+          "net_price": 295.0
+        }
+      ],
+      "section_total": {
+        "net_price": 295.0
+      }
+    },
+    {
+      "section_name": "أدوية ومستلزمات",
+      "items": [
+        {
+          "code": "13",
+          "description": "مستلزمات الايواء أو العناية",
+          "english_description": "InPatient Consumables",
+          "date": "19.07.2025",
+          "time": "07:33",
+          "quantity": 1,
+          "unit_price": 3001.0,
+          "net_price": 3001.0
+        },
+        {
+          "code": "120",
+          "description": "أدوية من الصيدلية",
+          "english_description": "Pharmacy Medcine",
+          "date": "19.07.2025",
+          "time": "06:53",
+          "quantity": 1,
+          "unit_price": 284.0,
+          "net_price": 284.0
+        }
+      ],
+      "section_total": {
+        "net_price": 3285.0
+      }
+    },
+    {
+      "section_name": "عمليات جراحية",
+      "items": [
+        {
+          "code": "237110149",
+          "description": null,
+          "english_description": "Arthroscopy Bankart Repair + remplissage",
+          "date": "19.07.2025",
+          "time": "14:13",
+          "quantity": 1,
+          "unit_price": 10400.0,
+          "net_price": 10400.0
+        }
+      ],
+      "section_total": {
+        "net_price": 10400.0
+      }
+    }
+  ],
+  "summary": {
+    "total": 21180.0,
+    "paid": 0.0,
+    "remaining": 21180.0
+  }
+}

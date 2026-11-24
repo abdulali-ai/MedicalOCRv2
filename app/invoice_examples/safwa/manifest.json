@@ -2,7 +2,12 @@
   {
     "file": "inpatient_invoice.jpg",
     "output": "inpatient_invoice.json",
-    "source": "tests/Janzour Clinic/Claim 5/img10152025_0009.jpg"
+    "source": "results/2026-11-15/safwa/2.pdf#page=4"
+  },
+  {
+    "file": "inpatient_invoice_2.jpg",
+    "output": "inpatient_invoice_2.json",
+    "source": "results/2026-11-15/safwa/2.pdf#page=5"
   },
   {
     "file": "outpatient_invoice.jpg",

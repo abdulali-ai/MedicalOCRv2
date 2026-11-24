@@ -125,7 +125,10 @@ def _doc_key(body, template: str | None = None, document_type=None):
         )
     key = (_norm(patient.get("admission_no")), _norm(patient.get("medical_no")))
     if template == "safwa":
-        return (*key, _invoice_class(document_type))
+        invoice_class = _invoice_class(document_type)
+        if invoice_class == "outpatient":
+            return (*key, invoice_class, _norm(body.get("invoice_number")))
+        return (*key, invoice_class)
     return key
 
 
@@ -164,6 +167,8 @@ def _copy_patient_ids(target: dict, source: dict, template: str | None = None) -
         return
     patient["admission_no"] = src_patient.get("admission_no")
     patient["medical_no"] = src_patient.get("medical_no")
+    if template == "safwa" and source.get("invoice_number") not in (None, ""):
+        target["invoice_number"] = source.get("invoice_number")
 
 
 def repair_sandwiched_patient_ids(pages: list, template: str | None = None) -> list:
@@ -268,23 +273,48 @@ def _split_massara_medicine_sections(sections: list[dict]) -> list[dict]:
     """Move Masarra inpatient medicine rows (codes 321/322) out of non-medicine sections."""
     medicine_key = section_key(_MASSARA_MEDICINE_SECTION)
     out: list[dict] = []
+    seen_med: set[tuple] = set()
+
+    def _med_key(item: dict) -> tuple:
+        return (
+            _norm(item.get("code")),
+            _norm(item.get("date")),
+            _norm(item.get("time")),
+            item.get("net_price"),
+        )
+
     for section in sections:
         if not isinstance(section, dict):
             continue
         items = section.get("items") or []
         if same_section(section.get("section_name"), _MASSARA_MEDICINE_SECTION):
-            out.append(section)
+            deduped = []
+            for item in items:
+                if isinstance(item, dict) and _norm(item.get("code")) in _MASSARA_MEDICINE_CODES:
+                    key = _med_key(item)
+                    if key in seen_med:
+                        continue
+                    seen_med.add(key)
+                deduped.append(item)
+            if deduped:
+                cleaned = copy.deepcopy(section)
+                cleaned["items"] = deduped
+                out.append(cleaned)
             continue
         kept: list[dict] = []
         moved: list[dict] = []
         for item in items:
             code = _norm(item.get("code")) if isinstance(item, dict) else ""
             if code in _MASSARA_MEDICINE_CODES:
-                moved.append(item)
+                key = _med_key(item)
+                if key not in seen_med:
+                    seen_med.add(key)
+                    moved.append(item)
             else:
                 kept.append(item)
         if not moved:
-            out.append(section)
+            if kept:
+                out.append(section)
             continue
         if kept:
             trimmed = copy.deepcopy(section)
@@ -314,6 +344,34 @@ def _recompute_section_total(section: dict) -> None:
     total_block = section.get("section_total")
     if isinstance(total_block, dict) and set(total_block) <= {"net_price"}:
         section["section_total"] = {"net_price": round(sum(prices), 3)}
+
+
+def _repair_unit_price_as_net(section: dict) -> None:
+    """Fix rows where سعر الوحدة (unit price) was read into net_price instead of صافي السعر.
+
+    On CliniSysErp tables (janzour/safwa), صافي السعر == المريض + الجهة. When
+    quantity > 1 and net_price * quantity matches patient_share + payer_share
+    (within rounding tolerance), net_price clearly came from the unit-price column.
+    """
+    for item in section.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        qty = item.get("quantity")
+        net = item.get("net_price")
+        pat = item.get("patient_share")
+        pay = item.get("payer_share")
+        if not (
+            isinstance(qty, (int, float)) and qty > 1
+            and isinstance(net, (int, float))
+            and isinstance(pat, (int, float))
+            and isinstance(pay, (int, float))
+        ):
+            continue
+        share_sum = round(float(pat) + float(pay), 2)
+        if share_sum <= 0 or abs(float(net) - share_sum) <= 0.02:
+            continue
+        if abs(float(net) * float(qty) - share_sum) <= max(0.05, 0.02 * float(qty)):
+            item["net_price"] = share_sum
 
 
 def _append_sections(doc, sections, *, cross_page: bool = False, blank_continues: bool = False):
@@ -390,6 +448,10 @@ def merge_pages(pages, template: str | None = None):
             for section in doc.get("sections") or []:
                 if isinstance(section, dict):
                     _recompute_section_total(section)
+        else:
+            for section in doc.get("sections") or []:
+                if isinstance(section, dict):
+                    _repair_unit_price_as_net(section)
         if template == "safwa" and kind:
             doc["document_type"] = kind
         merged.append(doc)

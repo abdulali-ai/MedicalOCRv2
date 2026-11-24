@@ -82,11 +82,19 @@ def deskew(image: np.ndarray, min_deg: float = 0.3) -> tuple[np.ndarray, float]:
     return corrected, angle
 
 
-def top_half(image: np.ndarray) -> np.ndarray:
+CLASSIFY_TOP_FRACTION = 0.40
+
+
+def top_crop(image: np.ndarray, fraction: float = CLASSIFY_TOP_FRACTION) -> np.ndarray:
     height = image.shape[0]
     if height < 2:
         return image
-    return image[: height // 2, :]
+    cut = max(1, min(height, round(height * fraction)))
+    return image[:cut, :]
+
+
+def top_half(image: np.ndarray) -> np.ndarray:
+    return top_crop(image, 0.5)
 
 
 class VisionModels:

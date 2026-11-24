@@ -6,7 +6,7 @@ Each template has its own example set:
   invoice_examples/<template_name>/
   id_card_examples/<template_name>/
 
-Classifier files are the top half of a 300 DPI claim page, resized to 200 DPI.
+Classifier files are the top 40% of a 300 DPI claim page, resized to 150 DPI.
 Invoice files are full pages stored at 150 DPI. ID-card files are detector-style
 card crops. Empty manifests are allowed when a template has no few-shots yet.
 """

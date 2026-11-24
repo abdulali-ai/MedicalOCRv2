@@ -8,7 +8,7 @@ from app.config import settings
 from app.core.jobs.loop import run_consumer
 from app.core.jobs.state import JobStore
 from app.core.notifications import publish_update
-from app.core.vision.pipeline import VisionModels, crop_box, read_bgr, top_half, write_bgr
+from app.core.vision.pipeline import VisionModels, crop_box, deskew, read_bgr, top_crop, write_bgr
 
 
 logging.basicConfig(level=logging.INFO)
@@ -46,8 +46,11 @@ def handle(store: JobStore, models: VisionModels, fields: dict) -> None:
         return
 
     upright = models.upright(image)
+    upright, angle = deskew(upright, min_deg=0.5)
+    if abs(angle) >= 0.5:
+        logger.info("deskewed task=%s page=%s angle=%.2f", task_id, page, angle)
     upright_path = write_bgr(page_dir / f"page_{page}_upright.png", upright)
-    classify_path = write_bgr(page_dir / f"page_{page}_top.png", top_half(upright))
+    classify_path = write_bgr(page_dir / f"page_{page}_top.png", top_crop(upright))
     store.enqueue(settings.STREAM_EXTRACT, {
         "task_id": task_id,
         "page": page,
