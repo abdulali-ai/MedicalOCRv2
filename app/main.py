@@ -12,7 +12,7 @@ from redis import asyncio as aioredis
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.api.routes import health, pdf
+from app.api.routes import epdf, health, pdf
 from app.config import settings
 from app.core.extract.templates import load_registry
 
@@ -51,6 +51,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(pdf.router)
+app.include_router(epdf.router)
 
 
 @app.get("/")

@@ -312,5 +312,59 @@ async def extract_image(
     return safe_parse_json(content)
 
 
+async def extract_text(
+    client: httpx.AsyncClient,
+    text: str,
+    template: dict,
+    max_tokens: int,
+    instructions: str | None = None,
+    page_id: int | None = None,
+) -> dict:
+    """Send a text-only extraction request (used by the e-PDF pipeline) to vLLM NuExtract."""
+    if not text or not text.strip():
+        raise ExtractError(f"page {page_id} has empty e-PDF text")
+
+    template, field_notes = separate_field_notes(template)
+    extra = (instructions or "").strip()
+    merged_instructions = " ".join(part for part in (field_notes, extra) if part) or None
+
+    body = {
+        "model": settings.VLLM_MODEL_NAME,
+        "temperature": 0,
+        "max_tokens": max_tokens,
+        "messages": [
+            {"role": "user", "content": text},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "extract",
+                "schema": template_to_json_schema(template),
+            },
+        },
+        "chat_template_kwargs": {
+            "template": json.dumps(template, ensure_ascii=False),
+            "enable_thinking": False,
+            **({"instructions": merged_instructions} if merged_instructions else {}),
+        },
+    }
+
+    response = await client.post(settings.vllm_chat_url, json=body)
+    if response.status_code >= 400:
+        raise ExtractError(f"vLLM {response.status_code}: {response.text[:500]}")
+    payload = response.json()
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    logger.info(
+        "epdf page=%s prompt_tokens=%s",
+        page_id,
+        (usage or {}).get("prompt_tokens"),
+    )
+    try:
+        content = payload["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ExtractError(f"Unexpected vLLM response: {exc}") from exc
+    return safe_parse_json(content)
+
+
 def image_exists(path: str) -> bool:
     return bool(path) and Path(path).is_file()

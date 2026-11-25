@@ -346,6 +346,77 @@ body {
   background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(99, 102, 241, 0.14));
   box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
 }
+.template-pill.selected.epdf {
+  border-color: var(--accent-emerald);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(14, 165, 233, 0.12));
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
+}
+
+/* Pipeline Mode Switcher */
+.pipeline-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.pipeline-option {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: rgba(8, 13, 24, 0.65);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: all 0.16s ease;
+}
+.pipeline-option:hover {
+  border-color: rgba(148, 163, 184, 0.35);
+  color: var(--text-primary);
+}
+.pipeline-option.active.ocr {
+  border-color: var(--accent-primary);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(99, 102, 241, 0.14));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
+}
+.pipeline-option.active.epdf {
+  border-color: var(--accent-emerald);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(14, 165, 233, 0.12));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
+}
+.pipeline-option-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.pipeline-option-sub {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.pipeline-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pipeline-badge.ocr {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+.pipeline-badge.epdf {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
 .template-pill-id {
   font-size: 0.82rem;
   font-weight: 700;
@@ -500,6 +571,13 @@ body {
   transform: translateY(-1px);
   box-shadow: 0 14px 30px -5px rgba(56, 189, 248, 0.6);
   filter: brightness(1.06);
+}
+.btn-submit.epdf {
+  background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.45);
+}
+.btn-submit.epdf:hover:not(:disabled) {
+  box-shadow: 0 14px 30px -5px rgba(16, 185, 129, 0.6);
 }
 .btn-submit:disabled {
   opacity: 0.5;

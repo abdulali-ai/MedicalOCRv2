@@ -75,9 +75,11 @@ class Settings(BaseSettings):
     ORIENT_IMGSZ: int = 224
 
     STREAM_PDF: str = "jobs:pdf"
+    STREAM_EPDF: str = "jobs:epdf"
     STREAM_VISION: str = "jobs:vision"
     STREAM_EXTRACT: str = "jobs:extract"
     GROUP_PDF: str = "pdf-workers"
+    GROUP_EPDF: str = "epdf-workers"
     GROUP_VISION: str = "vision-workers"
     GROUP_EXTRACT: str = "extract-workers"
 

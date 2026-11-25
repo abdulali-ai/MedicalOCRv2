@@ -38,6 +38,43 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: epdf-worker
+  namespace: ocr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: epdf-worker
+  template:
+    metadata:
+      labels:
+        app: epdf-worker
+    spec:
+      containers:
+        - name: epdf-worker
+          image: ocr-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.services.epdf_worker"]
+          envFrom:
+            - configMapRef:
+                name: ocr-config
+          volumeMounts:
+            - name: storage
+              mountPath: /data
+            - name: app-code
+              mountPath: /app/app
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: ocr-storage
+        - name: app-code
+          hostPath:
+            path: /home/utec/ocr/app
+            type: Directory
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: vision-worker
   namespace: ocr
 spec:

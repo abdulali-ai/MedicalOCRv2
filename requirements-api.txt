@@ -4,5 +4,7 @@ pydantic-settings
 redis
 httpx
 pymupdf
+pdfplumber
+python-bidi
 pillow
 python-multipart

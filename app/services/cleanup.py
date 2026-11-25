@@ -32,7 +32,7 @@ def main() -> None:
     cutoff = time.time() - settings.TASK_RESULT_EXPIRE_TIME
     root = Path(settings.STORAGE_DIR)
     removed = 0
-    for name in ("results", "uploads", "pages"):
+    for name in ("results", "uploads", "pages", "epdf"):
         removed += _remove_old(root / name, cutoff)
     logger.info("Cleanup removed %s files older than %s seconds", removed, settings.TASK_RESULT_EXPIRE_TIME)
 

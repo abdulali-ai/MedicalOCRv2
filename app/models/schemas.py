@@ -38,6 +38,7 @@ class JobStatusResponse(BaseModel):
     filename: Optional[str] = None
     batch_id: Optional[str] = None
     template: Optional[str] = None
+    pipeline: Optional[str] = None
     status: str
     page_count: int = 0
     completed_pages: int = 0

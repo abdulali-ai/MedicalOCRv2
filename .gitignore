@@ -3,8 +3,9 @@ wheels/
 results/
 **/__pycache__/
 **/*.py[cod]
-**/.env
 **/.cache/
 models/NuExtract3-FP8/
 celerybeat-schedule.db
 *.deb
+config.bat
+node_modules

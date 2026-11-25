@@ -357,16 +357,20 @@ export default function App() {
   });
 
   // Templates & Upload Form state
-  const [templates, setTemplates] = useState([
+  const [pipelineMode, setPipelineMode] = useState('ocr'); // 'ocr' | 'epdf'
+  const [ocrTemplates, setOcrTemplates] = useState([
     'safwa',
     'massara',
     'musafat',
     'janzour',
   ]);
+  const [epdfTemplates, setEpdfTemplates] = useState(['janzour']);
   const [selectedTemplate, setSelectedTemplate] = useState('safwa');
   const [files, setFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [includeRawPages, setIncludeRawPages] = useState(false);
+
+  const activeTemplates = pipelineMode === 'epdf' ? epdfTemplates : ocrTemplates;
 
   // Submission & Active Jobs state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -428,14 +432,25 @@ export default function App() {
         if (tRes.ok) {
           const tData = await tRes.json();
           if (!cancelled && tData.ok && Array.isArray(tData.templates) && tData.templates.length > 0) {
-            setTemplates(tData.templates);
-            setSelectedTemplate((prev) =>
-              tData.templates.includes(prev) ? prev : tData.templates[0]
-            );
+            setOcrTemplates(tData.templates);
           }
         }
       } catch {
-        // Keep default templates list
+        // Keep default OCR templates list
+      }
+
+      try {
+        const eRes = await fetch(buildUrl('/api/epdf/templates'), {
+          headers: authHeaders,
+        });
+        if (eRes.ok) {
+          const eData = await eRes.json();
+          if (!cancelled && eData.ok && Array.isArray(eData.templates) && eData.templates.length > 0) {
+            setEpdfTemplates(eData.templates);
+          }
+        }
+      } catch {
+        // Keep default e-PDF templates list
       }
     }
 
@@ -446,6 +461,13 @@ export default function App() {
       clearInterval(interval);
     };
   }, [apiBaseUrl, authHeaders]);
+
+  // Keep selectedTemplate valid whenever mode or fetched templates change
+  useEffect(() => {
+    if (activeTemplates.length > 0 && !activeTemplates.includes(selectedTemplate)) {
+      setSelectedTemplate(activeTemplates[0]);
+    }
+  }, [pipelineMode, activeTemplates, selectedTemplate]);
 
   // Poll active jobs/batch until all jobs are completed or error
   useEffect(() => {
@@ -676,13 +698,16 @@ export default function App() {
     setIsSubmitting(true);
 
     try {
+      const isEpdf = pipelineMode === 'epdf';
+      const singleEndpoint = isEpdf ? '/api/epdf/process' : '/process-pdf/';
+      const batchEndpoint = isEpdf ? '/api/epdf/batch' : '/batch-process-pdf/';
+
       if (files.length === 1) {
-        // Single PDF endpoint: POST /process-pdf/
         const formData = new FormData();
         formData.append('template', selectedTemplate);
         formData.append('file', files[0]);
 
-        const res = await fetch(buildUrl('/process-pdf/'), {
+        const res = await fetch(buildUrl(singleEndpoint), {
           method: 'POST',
           headers: authHeaders,
           body: formData,
@@ -701,6 +726,7 @@ export default function App() {
           task_id: data.task_id,
           filename: data.filename || files[0].name,
           template: data.template || selectedTemplate,
+          pipeline: data.pipeline || pipelineMode,
           status: data.status || 'queued',
           page_count: data.page_count || 0,
           completed_pages: 0,
@@ -710,14 +736,13 @@ export default function App() {
         setJobs([initialJob]);
         setActiveTab(data.task_id);
       } else {
-        // Multiple PDFs endpoint: POST /batch-process-pdf/
         const formData = new FormData();
         formData.append('template', selectedTemplate);
         for (const file of files) {
           formData.append('files', file);
         }
 
-        const res = await fetch(buildUrl('/batch-process-pdf/'), {
+        const res = await fetch(buildUrl(batchEndpoint), {
           method: 'POST',
           headers: authHeaders,
           body: formData,
@@ -742,6 +767,7 @@ export default function App() {
           filename: item.filename,
           batch_id: item.batch_id,
           template: item.template || selectedTemplate,
+          pipeline: item.pipeline || pipelineMode,
           status: item.status || 'queued',
           page_count: item.page_count || 0,
           completed_pages: 0,
@@ -1085,7 +1111,9 @@ export default function App() {
               API: {health.status === 'healthy' ? 'Online' : health.status}
             </span>
             <span style={{ color: 'var(--text-muted)' }}>|</span>
-            <span>{templates.length} Templates</span>
+            <span>{ocrTemplates.length} OCR</span>
+            <span style={{ color: 'var(--text-muted)' }}>·</span>
+            <span>{epdfTemplates.length} e-PDF</span>
           </div>
 
           <button
@@ -1201,12 +1229,72 @@ export default function App() {
             )}
           </div>
 
+          {/* Pipeline Mode Switcher: Scanned OCR vs Electronic PDF */}
+          <div className="field-group">
+            <label className="field-label">
+              <span>Extraction Pipeline</span>
+              <span
+                style={{
+                  textTransform: 'none',
+                  color:
+                    pipelineMode === 'epdf'
+                      ? 'var(--accent-emerald)'
+                      : 'var(--accent-primary)',
+                }}
+              >
+                {pipelineMode === 'epdf' ? 'Text-Layer e-PDF' : 'Vision / Image OCR'}
+              </span>
+            </label>
+            <div className="pipeline-switcher">
+              <button
+                type="button"
+                className={`pipeline-option ${
+                  pipelineMode === 'ocr' ? 'active ocr' : ''
+                }`}
+                onClick={() => {
+                  setPipelineMode('ocr');
+                  setErrorMsg('');
+                }}
+              >
+                <span className="pipeline-option-title">Scanned / Image OCR</span>
+                <span className="pipeline-option-sub">/process-pdf/</span>
+              </button>
+              <button
+                type="button"
+                className={`pipeline-option ${
+                  pipelineMode === 'epdf' ? 'active epdf' : ''
+                }`}
+                onClick={() => {
+                  setPipelineMode('epdf');
+                  setErrorMsg('');
+                }}
+              >
+                <span className="pipeline-option-title">Electronic PDF (e-PDF)</span>
+                <span className="pipeline-option-sub">/api/epdf/process</span>
+              </button>
+            </div>
+          </div>
+
           {/* Template Dropdown */}
           <div className="field-group">
             <label className="field-label" htmlFor="template-select">
-              <span>Extraction Template</span>
-              <span style={{ textTransform: 'none', color: 'var(--accent-primary)' }}>
-                app/templates/{selectedTemplate}.json
+              <span>
+                {pipelineMode === 'epdf'
+                  ? 'e-PDF Provider Template'
+                  : 'Extraction Template'}
+              </span>
+              <span
+                style={{
+                  textTransform: 'none',
+                  color:
+                    pipelineMode === 'epdf'
+                      ? 'var(--accent-emerald)'
+                      : 'var(--accent-primary)',
+                }}
+              >
+                {pipelineMode === 'epdf'
+                  ? `epdf/${selectedTemplate}`
+                  : `app/templates/${selectedTemplate}.json`}
               </span>
             </label>
             <div className="template-select-wrapper">
@@ -1216,7 +1304,7 @@ export default function App() {
                 value={selectedTemplate}
                 onChange={(e) => setSelectedTemplate(e.target.value)}
               >
-                {templates.map((tpl) => {
+                {activeTemplates.map((tpl) => {
                   const meta = TEMPLATE_META[tpl];
                   return (
                     <option key={tpl} value={tpl}>
@@ -1230,7 +1318,7 @@ export default function App() {
 
             {/* Quick-pick visual template cards */}
             <div className="template-pills">
-              {templates.map((tpl) => {
+              {activeTemplates.map((tpl) => {
                 const meta = TEMPLATE_META[tpl] || {
                   label: tpl,
                   arabic: 'Template Schema',
@@ -1240,14 +1328,25 @@ export default function App() {
                     key={tpl}
                     type="button"
                     className={`template-pill ${
-                      selectedTemplate === tpl ? 'selected' : ''
+                      selectedTemplate === tpl
+                        ? pipelineMode === 'epdf'
+                          ? 'selected epdf'
+                          : 'selected'
+                        : ''
                     }`}
                     onClick={() => setSelectedTemplate(tpl)}
                   >
                     <div className="template-pill-id">
                       <span>{tpl}</span>
                       {selectedTemplate === tpl && (
-                        <span style={{ color: '#38bdf8' }}>●</span>
+                        <span
+                          style={{
+                            color:
+                              pipelineMode === 'epdf' ? '#34d399' : '#38bdf8',
+                          }}
+                        >
+                          ●
+                        </span>
                       )}
                     </div>
                     <div className="template-pill-sub">{meta.arabic}</div>
@@ -1307,8 +1406,19 @@ export default function App() {
                 Drop one or multiple PDF files here, or click to browse
               </div>
               <div className="dropzone-hint">
-                Automatically routes single file to <code>/process-pdf/</code>{' '}
-                and multiple files to <code>/batch-process-pdf/</code>
+                {pipelineMode === 'epdf' ? (
+                  <>
+                    Requires electronic PDFs with selectable text — routes single
+                    file to <code>/api/epdf/process</code> and multiple files to{' '}
+                    <code>/api/epdf/batch</code>
+                  </>
+                ) : (
+                  <>
+                    Automatically routes single file to{' '}
+                    <code>/process-pdf/</code> and multiple files to{' '}
+                    <code>/batch-process-pdf/</code>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1379,13 +1489,15 @@ export default function App() {
 
           <button
             type="submit"
-            className="btn-submit"
+            className={`btn-submit ${pipelineMode === 'epdf' ? 'epdf' : ''}`}
             disabled={isSubmitting || files.length === 0}
           >
             {isSubmitting ? (
               <>
                 <span className="spinner" style={{ borderTopColor: '#fff' }} />
-                Uploading &amp; Queuing PDFs...
+                {pipelineMode === 'epdf'
+                  ? 'Uploading & Queuing e-PDFs...'
+                  : 'Uploading & Queuing PDFs...'}
               </>
             ) : (
               <>
@@ -1399,7 +1511,11 @@ export default function App() {
                 >
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                {files.length > 1
+                {pipelineMode === 'epdf'
+                  ? files.length > 1
+                    ? `Extract ${files.length} e-PDFs (${selectedTemplate.toUpperCase()})`
+                    : `Extract e-PDF (${selectedTemplate.toUpperCase()})`
+                  : files.length > 1
                   ? `Submit ${files.length} PDFs (${selectedTemplate.toUpperCase()})`
                   : `Submit PDF (${selectedTemplate.toUpperCase()})`}
               </>
@@ -1495,6 +1611,19 @@ export default function App() {
                     </span>
                   </div>
                   <div className="batch-stats">
+                    {(jobs[0]?.pipeline || pipelineMode) && (
+                      <span
+                        className={`pipeline-badge ${
+                          (jobs[0]?.pipeline || pipelineMode) === 'epdf'
+                            ? 'epdf'
+                            : 'ocr'
+                        }`}
+                      >
+                        {(jobs[0]?.pipeline || pipelineMode) === 'epdf'
+                          ? 'e-PDF'
+                          : 'OCR'}
+                      </span>
+                    )}
                     <span className="stat-chip">
                       PDFs: {progressStats.completedJobs}/
                       {progressStats.totalJobs}

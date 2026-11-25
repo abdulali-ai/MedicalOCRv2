@@ -6,13 +6,15 @@ import logging
 import os
 import socket
 
+from pathlib import Path
+
 import httpx
 import redis
 import redis.asyncio as aioredis
 
 from app.config import settings
 from app.core.extract.budget import CLASSIFY_IMAGE_DPI, VLLM_IMAGE_DPI
-from app.core.extract.client import ExtractError, extract_image
+from app.core.extract.client import ExtractError, extract_image, extract_text
 from app.core.extract.examples import classifier_examples, id_card_examples, invoice_examples
 from app.core.extract.parse import invoice_is_empty
 from app.core.extract.templates import TemplateError, exact_label, load_registry
@@ -268,14 +270,6 @@ def _is_invoice_stage(stage: str) -> bool:
 
 async def _call_extract(http, fields: dict, job: dict, stage: str, template: dict):
     template_name = fields.get("template_name") or job.get("template") or "janzour"
-    if stage == "classify":
-        examples = classifier_examples(template_name) or None
-    elif _is_invoice_stage(stage):
-        examples = invoice_examples(template_name, stage) or None
-    elif stage == "id_card":
-        examples = id_card_examples(template_name) or None
-    else:
-        examples = None
     page = int(fields.get("page") or 0)
     instructions = None
     if stage == "classify":
@@ -286,6 +280,30 @@ async def _call_extract(http, fields: dict, job: dict, stage: str, template: dic
         template = dict(template)
         raw = template.pop("instructions", None)
         instructions = raw.strip() if isinstance(raw, str) and raw.strip() else None
+
+    if fields.get("input_mode") == "text":
+        text_path = fields.get("text_path") or ""
+        if not text_path:
+            raise ExtractError(f"page {page} missing text_path for text extraction")
+        text = await asyncio.to_thread(Path(text_path).read_text, "utf-8")
+        return await extract_text(
+            http,
+            text,
+            template,
+            _max_tokens_for(stage),
+            instructions=instructions,
+            page_id=page,
+        )
+
+    if stage == "classify":
+        examples = classifier_examples(template_name) or None
+    elif _is_invoice_stage(stage):
+        examples = invoice_examples(template_name, stage) or None
+    elif stage == "id_card":
+        examples = id_card_examples(template_name) or None
+    else:
+        examples = None
+
     return await extract_image(
         http,
         fields["image_path"],
